@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup Condition="'$(CompileTarget)' == ''">
+    <CompileTarget>Mono</CompileTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CompileTarget)' == 'Mono'">
+    <DefineConstants>$(DefineConstants);MONO</DefineConstants>
+    <AssemblyName>XPAB.Runtime.Mono</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CompileTarget)' == 'BepIl2Cpp'">
+    <DefineConstants>$(DefineConstants);IL2CPP;BEPINEX</DefineConstants>
+    <AssemblyName>XPAB.Runtime.BepInEx</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CompileTarget)' == 'MelonIl2Cpp'">
+    <DefineConstants>$(DefineConstants);IL2CPP;MELON</DefineConstants>
+    <AssemblyName>XPAB.Runtime.MelonLoader</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Condition="'$(CompileTarget)' == 'Mono'" Include="../UnityMono/*.dll" Private="false" />
+    <Reference Condition="'$(CompileTarget)' == 'BepIl2Cpp'" Include="../UnityBepIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(CompileTarget)' == 'MelonIl2Cpp'" Include="../UnityMelonIl2Cpp/*.dll" Private="false" />
+  </ItemGroup>
+</Project>

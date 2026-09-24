@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>XPAB.Editor</AssemblyName>
+    <DefineConstants>$(DefineConstants);UNITY_EDITOR</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Runtime\Runtime.csproj" AdditionalProperties="CompileTarget=Mono" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="../UnityMono/*.dll" Private="false" />
+    <Reference Include="../UnityEditor/*.dll" Private="false" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,8 @@
+*/obj/
+*/bin/
+*/packages.lock.json
+.idea/
+.vs*/
+Unity*/
+Unity*
+artifacts/
