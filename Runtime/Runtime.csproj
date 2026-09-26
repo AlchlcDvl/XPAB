@@ -1,20 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup Condition="'$(CompileTarget)' == ''">
-    <CompileTarget>Mono</CompileTarget>
-  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyName>XPAB</AssemblyName>
 
-  <PropertyGroup Condition="'$(CompileTarget)' == 'Mono'">
-    <DefineConstants>$(DefineConstants);MONO</DefineConstants>
-    <AssemblyName>XPAB.Runtime.Mono</AssemblyName>
-  </PropertyGroup>
+    <ModLoader Condition="'$(ModLoader)' == ''">None</ModLoader>
 
-  <PropertyGroup Condition="'$(CompileTarget)' == 'Il2Cpp'">
-    <DefineConstants>$(DefineConstants);IL2CPP</DefineConstants>
-    <AssemblyName>XPAB.Runtime.Il2Cpp</AssemblyName>
+    <DefineConstants Condition="'$(ModLoader)' == 'BepInEx'">$(DefineConstants);BEPINEX</DefineConstants>
+    <DefineConstants Condition="'$(ModLoader)' == 'MelonLoader'">$(DefineConstants);MELON_LOADER</DefineConstants>
+    <DefineConstants Condition="'$(ModLoader)' == 'Custom'">$(DefineConstants);CUSTOM_LOADER</DefineConstants>
+
+    <CompileTarget Condition="'$(CompileTarget)' == ''">Mono</CompileTarget>
+
+    <DefineConstants Condition="'$(CompileTarget)' == 'Mono'">$(DefineConstants);MONO</DefineConstants>
+    <DefineConstants Condition="'$(CompileTarget)' == 'Il2Cpp'">$(DefineConstants);IL2CPP</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Core/**/*.cs" />
+
     <Reference Condition="'$(CompileTarget)' == 'Mono'" Include="../UnityMono/*.dll" Private="false" />
     <Reference Condition="'$(CompileTarget)' == 'Il2Cpp'" Include="../UnityIl2Cpp/*.dll" Private="false" />
+
+    <Reference Condition="'$(ModLoader)' == 'BepInEx'" Include="../BepInEx/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'MelonLoader'" Include="../MelonLoader/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'Custom'" Include="../CustomLoader/*.dll" Private="false" />
   </ItemGroup>
 </Project>

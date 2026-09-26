@@ -5,10 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Runtime\Runtime.csproj" AdditionalProperties="CompileTarget=Mono" />
-  </ItemGroup>
+    <Compile Include="../Core/**/*.cs" />
 
-  <ItemGroup>
     <Reference Include="../UnityMono/*.dll" Private="false" />
     <Reference Include="../UnityEditor/*.dll" Private="false" />
   </ItemGroup>

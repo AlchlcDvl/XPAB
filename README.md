@@ -45,6 +45,8 @@ The following are assets that are planned to have support from the start. There 
 
 - [x] Set up project and configurations
 - [ ] Set up build options in Editor project
+- [x] Handle serialising asset bundles into the file
+- [ ] Handle deserialising asset bundles from a file
 - [ ] Handle serialisation and deserialisation of assets (see table below)
 - [ ] Add checksum behaviour
 - [ ] Finalise binary
@@ -53,10 +55,10 @@ The following are assets that are planned to have support from the start. There 
 
 | Asset Type                        | Serialisable | Deserialisable |
 | --------------------------------- | ------------ | -------------- |
-| `TextAsset`                       | [ ]          | [ ]            |
-| `BinaryAsset`                     | [ ]          | [ ]            |
+| `TextAsset`                       | [x]          | [x]            |
+| `BinaryAsset`                     | [x]          | [x]            |
 | `Texture`                         | [ ]          | [ ]            |
-| `AudioClip`                       | [ ]          | [ ]            |
+| `AudioClip`                       | [x]          | [x]            |
 | `Shader`                          | [ ]          | [ ]            |
 | `VideoClip`                       | [ ]          | [ ]            |
 | `Font`                            | [ ]          | [ ]            |
@@ -72,16 +74,23 @@ The following are assets that are planned to have support from the start. There 
 
 ## Building the Project
 
-Due to the nature of the Unity modding scene, where games run on vastly different engine versions and use different interop libraries, I cannot provide pre-compiled, versioned releases. You must compile the project yourself against the specific DLLs of your target game. I'm sure you already know how to.
+Due to the nature of the Unity modding scene, where games run on vastly different engine versions and use different interop libraries, I cannot provide pre-compiled, versioned releases. You must compile the project yourself against the specific DLLs of your target game and mod loader.
 
-There are pre-configured (and gitignored) reference folders where you can drop your target game's DLLs. Ensure you select the correct scripting backend (Mono vs IL2Cpp) via the `.csproj` targets or build arguments (adding `/p:CompileTarget=Mono` or `/p:CompileTarget=Il2Cpp`).
+There are pre-configured (and gitignored) reference folders where you can drop your target game and mod loader's DLLs.
+
+### Configuration
+
+The project has two build properties to make use of when compiling the project.
+- `ModLoader`: Choose between `None` (Standalone, useful for if you want to load it yourself), `BepInEx`, `MelonLoader` and `Custom` (for non-conventional mod loaders, you must write the initialisation logic yourself for this target). This lets the asset reader to be loaded either manually, or by the mod loader it's compiled against.
+- `CompileTarget`: Choose between `Mono` and `Il2Cpp` when compiling the project. This corresponds to the scripting backends of Unity with the same name. There are key differences between the two, so it's important that asset creation match the backend exactly lest you feel the wrath of the engine.
 
 Here are the libraries you need to extract and place into their respective folders:
 
-`UnityEditor` (Found inside your Unity Editor installation: `Editor/Data/Managed/`):
+`UnityEditor` (Found in: `[Editor Installation]/Editor/Data/Managed/`):
 - `UnityEditor.dll`
+- `UnityEditor.CoreModule.dll` (only if some methods are missing)
 
-`UnityMono` (Found inside your target game's directory: `[GameName]_Data/Managed/`):
+`UnityMono` (Found in: `[Game Installation]/[GameName]_Data/Managed/`):
 - `UnityEngine.dll`
 - `UnityEngine.AnimationModule.dll`
 - `UnityEngine.AssetBundleModule.dll`
@@ -90,11 +99,25 @@ Here are the libraries you need to extract and place into their respective folde
 - `UnityEngine.ImageConversionModule.dll`
 - `UnityEngine.TextRenderingModule.dll`
 - `UnityEngine.VideoModule.dll`
+- `Unity.TextMeshPro.dll`
 
-`UnityIl2Cpp` (Found inside your target game's directory: `BepInEx/interop/`, `BepInEx/core/` or `MelonLoader/Il2CppAssemblies/`)
-- All the `UnityEngine.*` DLLs listed in the Mono section above.
+`UnityIl2Cpp` (Found in: `[Game Installation]/BepInEx/interop/`, `[Game Installation]/BepInEx/core/` or `[Game Installation]/MelonLoader/Il2CppAssemblies/`)
+- All the `UnityEngine.*` and `Unity.*` DLLs listed in the Mono section above.
 - `Il2CppInterop.Runtime.dll`
 - `Il2Cppmscorlib.dll`
+
+`MelonLoader` (Found in: `[Game Installation]/MelonLoader/net6/`)
+- `MelonLoader.dll`
+
+`BepInEx` (Found in: `[Game Installation]/BepInEx/core/`)
+- `BepInEx.Core.dll`
+- `BepInEx.Unity.Common.dll`
+- `BepInEx.Unity.IL2CPP.dll` (for Il2Cpp games)
+- `BepInEx.Unity.Mono.dll` (for Mono games)
+
+For the `Custom` loader configuration, navigate to the respective folders and copy them into the `CustomLoader` folder.
+
+Make sure to copy over any other dlls that the aforementioned ones depend on as well.
 
 This project is a work-in-progress! Feel free to contribute! Check back frequently for updates!
 
@@ -106,11 +129,12 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
 
 ```text
 -- Header
-[XPAB]                  (ASCII)
+[XPAB]                  (ASCII, 4 Bytes)
 [File Version]          (ULEB128)
 
 -- Embedded Unity bundles for assets that cannot be made platform agnostic (eg, shaders)
-[Target Count]          (Byte)
+[Asset Bundle Version]  (ULEB128) -- Used to note if a change was made to the asset bundle build settings
+[Target Count]          (ULEB128)
 
   [Target ID]           (Byte)
   [Byte Count]          (ULEB128)
@@ -120,7 +144,7 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
 -- String pool to avoid repeated strings
 [String Count]          (ULEB128)
 
-  [String]              (String) -- Future string writes will write a packed index instead of the actual string itself
+  [String]              (String) -- Future string writes will write a packed index instead of the actual string itself, ULEB128 prefixed UTF-8
 
 [Master TOC Pos]        (Int64)
 
@@ -128,22 +152,21 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
   [Asset Group TOC Pos] (Int64)
 
     -- Assets
-    [Asset Data Length] (SLEB128) -- -1 is used to denote if the asset has no metadata
+    [Asset Data Length] (SLEB128) -- -1 for no metadata
     [Asset Metadata]    (Variable)
-    [Byte Count]        (SLEB128) -- -1 is used to denote if the asset has no file data
+    [Byte Count]        (SLEB128) -- -1 for no file data
     [Bytes]             (Byte[])
     -- Repeats per asset
 
   -- Asset Group Table of Contents
   [Asset Count]         (ULEB128)
 
+    -- Asset Entry
     [Entry Length]      (ULEB128)
     [Path]              (ULEB128)
     [File Name]         (ULEB128)
-    [File Extension]    (SByte) -- Refers to the index in the Master TOC's file extension array
+    [File Extension]    (SByte) -- Refers to the index in the Master TOC's file extension array, -1 for no extension
     [Asset Pos]         (Int64)
-    [Raw Length]        (ULEB128)
-    [Compressed Length] (SLEB128) -- -1 if no compression is used, non-negative otherwise (uses LZ4)
     -- Repeats per asset
 
   -- Repeats per asset type group
@@ -151,6 +174,7 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
 -- Master Table of Contents
 [Type Count]            (Byte)
 
+  -- Group Entry
   [Entry Length]        (ULEB128)
   [Type ID]             (Byte)
   [Type Version]        (ULEB128)
@@ -163,15 +187,9 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
   -- Repeats per asset type
 
 -- Footer
-[Checksum]              (Byte[])
-[BAPX]                  (ASCII)
+[Checksum]              (Byte[]) -- SHA-256
+[BAPX]                  (ASCII, 4 Bytes)
 ```
-
-A couple things to note:
-
-- The binary will be little endian
-- Strings are written in a length prefixed (ULEB128) UTF-8 format
-- The checksum is a SHA-256 calculation of bytes starting from the first byte of the bundle count up until the last byte of the master TOC.
 
 ---
 

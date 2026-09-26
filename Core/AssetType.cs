@@ -6,7 +6,7 @@ public enum AssetType : byte
     /// <summary><see cref="UnityEngine.TextAsset"/>.</summary>
     TextAsset,
 
-    /// <summary><see cref="XPAB.Assets.BinaryAsset"/>.</summary>
+    /// <summary><see cref="Assets.BinaryAsset"/>.</summary>
     BinaryAsset,
 
     /// <summary><see cref="UnityEngine.Texture"/>.</summary>

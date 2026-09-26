@@ -5,7 +5,7 @@ using Il2CppInterop.Runtime.Injection;
 using XPAB.Assets;
 #endif
 
-namespace XPAB.Core;
+namespace XPAB;
 
 /// <summary>The core class of the XPAB file handler.</summary>
 public static class XPABCore
