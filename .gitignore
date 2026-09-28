@@ -6,9 +6,9 @@
 Unity*/
 Unity*
 artifacts/
-BepInEx/
-BepInEx
-MelonLoader/
-MelonLoader
-CustomLoader/
-CustomLoader
+BepInEx*/
+BepInEx*
+MelonLoader*/
+MelonLoader*
+CustomLoader*/
+CustomLoader*

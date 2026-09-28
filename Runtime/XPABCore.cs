@@ -10,6 +10,8 @@ namespace XPAB;
 /// <summary>The core class of the XPAB file handler.</summary>
 public static class XPABCore
 {
+    internal static readonly string CachePath = Path.Combine(Application.temporaryCachePath, "XPAB_Dumps");
+
     /// <summary>Initialises the core components of the handler.</summary>
     /// <remarks>Make sure that this is invoked before you load ANY asset.</remarks>
     public static void Initialise()

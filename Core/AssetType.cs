@@ -9,8 +9,8 @@ public enum AssetType : byte
     /// <summary><see cref="Assets.BinaryAsset"/>.</summary>
     BinaryAsset,
 
-    /// <summary><see cref="UnityEngine.Texture"/>.</summary>
-    Texture,
+    /// <summary><see cref="UnityEngine.Texture2D"/>.</summary>
+    Texture2D,
 
     /// <summary><see cref="UnityEngine.AudioClip"/>.</summary>
     AudioClip,

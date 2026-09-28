@@ -1,5 +1,7 @@
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
+using XPAB.Writer;
 
 namespace XPAB;
 
@@ -10,63 +12,103 @@ public static class XPABWriter
                                                       BuildAssetBundleOptions.ForceRebuildAssetBundle |
                                                       BuildAssetBundleOptions.AssetBundleStripUnityVersion;
 
+    private static readonly string OutputPath = Path.Combine("Assets", "StreamingAssets", "XPAB");
+    private static readonly string TempPath = Path.Combine("Temp", "XPAB");
+
+    /// <summary>Creates all of the XPAB files based on the set configs in the project.</summary>
+    [MenuItem("XPAB/Build Bundles")]
+    public static void BuildXPABBundles()
+    {
+        if (!Directory.Exists(OutputPath))
+            Directory.CreateDirectory(OutputPath);
+
+        var configs = AssetDatabase.FindAssets("t:XPABConfig")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<XPABConfig>)
+            .ToArray();
+
+        if (configs.Length == 0)
+        {
+            Debug.LogError("There are no configs made to build the bundles.");
+            return;
+        }
+
+        foreach (var config in configs)
+            CreateBundle(config);
+
+        AssetDatabase.Refresh();
+    }
+
     /// <summary>Creates an XPAB bundle it in the output path.</summary>
     /// <param name="config">The configuration that dictates the serialisation behaviour.</param>
     public static void CreateBundle(XPABConfig config)
     {
-        var path = Path.Combine(config.path);
-        var temp = Path.Combine(path, $"temp_{config.name}");
-        var filePath = Path.Combine(path, $"{config.name}.xpab");
+        var temp = Path.Combine(TempPath, $"temp_{config.fileName}");
+        var filePath = Path.Combine(OutputPath, $"{config.fileName}.xpab");
 
         try
         {
-            if (!Directory.Exists(path))
-                Directory.CreateDirectory(path);
-
             PrepDirectory(temp);
 
-            var bundleAssets = AssetDatabase.FindAssets($"l:xpab_{config.name}")
-                .Select(AssetDatabase.GUIDToAssetPath)
-                .Distinct()
-                .ToArray();
+            config.targets = [.. config.targets.Distinct()];
 
-            foreach (var target in config.targets)
-                BuildTempAssetBundle(temp, config.name, bundleAssets, target);
+            var bundleAssets = AssetDatabase.FindAssets($"l:xpab_{config.fileName}_bundle")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .ToArray();
+            var hasBundles = bundleAssets.Length > 0 && config.targets.Length > 0;
+
+            if (bundleAssets.Length > 0 && config.targets.Length == 0)
+                Debug.LogWarning($"Assets were tagged for {config.fileName}, but no target platforms were configured in XPABConfig. Asset bundle building will be skipped.");
+
+            if (bundleAssets.Length == 0 && config.targets.Length > 0)
+                Debug.LogWarning($"Bundle platform targets for {config.fileName} were defined, but no assets were tagged for it. Asset bundle building will be skipped.");
+
+            if (hasBundles)
+            {
+                foreach (var target in config.targets)
+                    BuildTempAssetBundle(temp, config.fileName, bundleAssets, target);
+            }
 
             using var fs = File.Create(filePath);
-            using var fileWriter = new BinaryWriter(fs);
 
-            fileWriter.Write(Encoding.ASCII.GetBytes(Constants.Header));
+            fs.Write(Encoding.ASCII.GetBytes(Constants.Header));
 
-            using var assets = new FileStream(filePath + "_assets", FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
-            using var writer = new BinaryWriter(assets, Encoding.UTF8, true);
+            using var sha256 = SHA256.Create();
+            using var cryptoStream = new CryptoStream(fs, sha256, CryptoStreamMode.Write, true);
+            using var writer = new AssetWriter(cryptoStream, true);
 
             writer.WritePacked(Constants.FileVersion);
 
-            writer.WritePacked(Constants.AssetBundleVersion);
-            writer.WritePacked((uint)config.targets.Length);
-
-            foreach (var target in config.targets)
+            if (hasBundles)
             {
-                writer.Write((byte)target);
+                writer.WritePacked((uint)config.targets.Length);
+                writer.WritePacked(Constants.AssetBundleVersion);
 
-                var sf = target.GetShortForm();
-                var bundleFilePath = Path.Combine(temp, sf, $"{config.name}.bundle_{sf}");
+                foreach (var target in config.targets)
+                {
+                    writer.Write((byte)target);
 
-                writer.WriteBytesAndSize(File.ReadAllBytes(bundleFilePath));
+                    var sf = target.GetShortForm();
+                    var bundleFilePath = Path.Combine(temp, sf, $"{config.fileName}.bundle_{sf}");
+
+                    using var fs2 = File.OpenRead(bundleFilePath);
+                    writer.WritePacked((ulong)fs2.Length);
+
+                    fs2.CopyTo(cryptoStream);
+                }
+            }
+            else
+            {
+                writer.WritePacked(0u);
             }
 
-            // Assets to be written
+            // String Pool, Assets and Master TOC to be written
 
-            assets.Position = 0;
-            using var sha256 = SHA256.Create();
-            var checksumBytes = sha256.ComputeHash(assets);
+            writer.Flush();
+            cryptoStream.FlushFinalBlock();
 
-            assets.Position = 0;
-            assets.CopyTo(fs);
-
-            fileWriter.Write(checksumBytes);
-            fileWriter.Write(Encoding.ASCII.GetBytes(Constants.Footer));
+            fs.Write(sha256.Hash);
+            fs.Write(Encoding.ASCII.GetBytes(Constants.Footer));
         }
         finally
         {
@@ -85,7 +127,11 @@ public static class XPABWriter
             assetNames = assetPaths,
         };
         PrepDirectory(dir);
-        BuildPipeline.BuildAssetBundles(dir, [buildMap], ABConfigs, target.GetBuildTarget());
+
+        var manifest = BuildPipeline.BuildAssetBundles(dir, [buildMap], ABConfigs, target.GetBuildTarget());
+
+        if (manifest == null || !File.Exists(Path.Combine(dir, buildMap.assetBundleName)))
+            throw new SerializationException($"Failed to build platform bundle for {target}.");
     }
 
     private static void PrepDirectory(string path)

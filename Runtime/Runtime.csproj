@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <AssemblyName>XPAB</AssemblyName>
+    <AssemblyName>XPAB.Runtime</AssemblyName>
 
     <ModLoader Condition="'$(ModLoader)' == ''">None</ModLoader>
 
+    <DefineConstants Condition="'$(ModLoader)' != 'None'">$(DefineConstants);USES_LOADER</DefineConstants>
     <DefineConstants Condition="'$(ModLoader)' == 'BepInEx'">$(DefineConstants);BEPINEX</DefineConstants>
     <DefineConstants Condition="'$(ModLoader)' == 'MelonLoader'">$(DefineConstants);MELON_LOADER</DefineConstants>
     <DefineConstants Condition="'$(ModLoader)' == 'Custom'">$(DefineConstants);CUSTOM_LOADER</DefineConstants>
@@ -23,5 +24,8 @@
     <Reference Condition="'$(ModLoader)' == 'BepInEx'" Include="../BepInEx/*.dll" Private="false" />
     <Reference Condition="'$(ModLoader)' == 'MelonLoader'" Include="../MelonLoader/*.dll" Private="false" />
     <Reference Condition="'$(ModLoader)' == 'Custom'" Include="../CustomLoader/*.dll" Private="false" />
+
+    <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Il2Cpp'" Include="../BepIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Il2Cpp'" Include="../MelonIl2Cpp/*.dll" Private="false" />
   </ItemGroup>
 </Project>

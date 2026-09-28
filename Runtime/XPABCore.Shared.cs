@@ -1,5 +1,4 @@
-#if BEPINEX || MELON_LOADER || CUSTOM_LOADER
-
+#if USES_LOADER
 namespace XPAB;
 
 /// <summary>The core BepInEx plugin for loading XPAB files.</summary>

@@ -11,7 +11,7 @@ public class BinaryAssetImporter : ScriptedImporter
     public override void OnImportAsset(AssetImportContext ctx)
     {
         var binaryAsset = ScriptableObject.CreateInstance<BinaryAsset>();
-        binaryAsset.bytes = File.ReadAllBytes(ctx.assetPath);
+        binaryAsset.file = ctx.assetPath;
 
         ctx.AddObjectToAsset("main", binaryAsset);
         ctx.SetMainObject(binaryAsset);
