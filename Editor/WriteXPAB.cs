@@ -6,7 +6,7 @@ using XPAB.Writer;
 namespace XPAB;
 
 /// <summary>A utility class that writes an XPAB file.</summary>
-public static class XPABWriter
+public static class WriteXPAB
 {
     private const BuildAssetBundleOptions ABConfigs = BuildAssetBundleOptions.UncompressedAssetBundle |
                                                       BuildAssetBundleOptions.ForceRebuildAssetBundle |
@@ -43,58 +43,55 @@ public static class XPABWriter
     /// <param name="config">The configuration that dictates the serialisation behaviour.</param>
     public static void CreateBundle(XPABConfig config)
     {
-        var temp = Path.Combine(TempPath, $"temp_{config.fileName}");
-        var filePath = Path.Combine(OutputPath, $"{config.fileName}.xpab");
+        var sanitizedName = string.Join("_", config.fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+        var temp = Path.Combine(TempPath, $"temp_{sanitizedName}");
+        var filePath = Path.Combine(OutputPath, $"{sanitizedName}.xpab");
 
         try
         {
             PrepDirectory(temp);
 
-            config.targets = [.. config.targets.Distinct()];
+            var activeTargets = config.targets?.Distinct()?.ToArray() ?? [];
 
-            var bundleAssets = AssetDatabase.FindAssets($"l:xpab_{config.fileName}_bundle")
+            var assets = AssetDatabase.FindAssets($"l:xpab_{sanitizedName}")
                 .Select(AssetDatabase.GUIDToAssetPath)
-                .ToArray();
-            var hasBundles = bundleAssets.Length > 0 && config.targets.Length > 0;
+                .ToLookup(OtherExtensions.ShouldBundleAsset);
 
-            if (bundleAssets.Length > 0 && config.targets.Length == 0)
-                Debug.LogWarning($"Assets were tagged for {config.fileName}, but no target platforms were configured in XPABConfig. Asset bundle building will be skipped.");
+            var bundleAssets = assets[true].ToArray();
+            var genericAssets = assets[false].ToArray();
 
-            if (bundleAssets.Length == 0 && config.targets.Length > 0)
-                Debug.LogWarning($"Bundle platform targets for {config.fileName} were defined, but no assets were tagged for it. Asset bundle building will be skipped.");
+            var hasBundles = bundleAssets.Length > 0 && activeTargets.Length > 0;
+
+            if (bundleAssets.Length > 0 && activeTargets.Length == 0)
+                Debug.LogWarning($"Bundle assets were tagged for {sanitizedName}, but no target platforms were configured. Asset bundle building will be skipped.");
+
+            if (bundleAssets.Length == 0 && activeTargets.Length > 0)
+                Debug.LogWarning($"Bundle platform targets for {sanitizedName} were defined, but no assets were tagged for it. Asset bundle building will be skipped.");
+
+            var bundles = new Dictionary<TargetPlatform, string>();
 
             if (hasBundles)
             {
-                foreach (var target in config.targets)
-                    BuildTempAssetBundle(temp, config.fileName, bundleAssets, target);
+                foreach (var target in activeTargets)
+                    BuildTempAssetBundle(temp, sanitizedName, bundleAssets, target, bundles);
             }
 
-            using var fs = File.Create(filePath);
-
-            fs.Write(Encoding.ASCII.GetBytes(Constants.Header));
-
+            using var file = File.Create(filePath);
             using var sha256 = SHA256.Create();
-            using var cryptoStream = new CryptoStream(fs, sha256, CryptoStreamMode.Write, true);
-            using var writer = new AssetWriter(cryptoStream, true);
+            using var stream = new CryptoStream(file, sha256, CryptoStreamMode.Write, true);
+            using var writer = new XPABWriter(stream, true);
 
-            writer.WritePacked(Constants.FileVersion);
+            writer.Write(Encoding.ASCII.GetBytes(Constants.Header));
+            writer.Write(sanitizedName);
 
             if (hasBundles)
             {
-                writer.WritePacked((uint)config.targets.Length);
-                writer.WritePacked(Constants.AssetBundleVersion);
+                writer.WritePacked((uint)activeTargets.Length);
 
-                foreach (var target in config.targets)
+                foreach (var (target, path) in bundles)
                 {
-                    writer.Write((byte)target);
-
-                    var sf = target.GetShortForm();
-                    var bundleFilePath = Path.Combine(temp, sf, $"{config.fileName}.bundle_{sf}");
-
-                    using var fs2 = File.OpenRead(bundleFilePath);
-                    writer.WritePacked((ulong)fs2.Length);
-
-                    fs2.CopyTo(cryptoStream);
+                    writer.WritePacked((uint)target);
+                    writer.WriteFile(path);
                 }
             }
             else
@@ -104,11 +101,12 @@ public static class XPABWriter
 
             // String Pool, Assets and Master TOC to be written
 
-            writer.Flush();
-            cryptoStream.FlushFinalBlock();
+            writer.Write(Encoding.ASCII.GetBytes(Constants.Footer));
 
-            fs.Write(sha256.Hash);
-            fs.Write(Encoding.ASCII.GetBytes(Constants.Footer));
+            writer.Flush();
+            stream.FlushFinalBlock();
+
+            file.Write(sha256.Hash);
         }
         finally
         {
@@ -117,7 +115,7 @@ public static class XPABWriter
         }
     }
 
-    private static void BuildTempAssetBundle(string outputDir, string name, string[] assetPaths, TargetPlatform target)
+    private static void BuildTempAssetBundle(string outputDir, string name, string[] assetPaths, TargetPlatform target, Dictionary<TargetPlatform, string> bundles)
     {
         var sf = target.GetShortForm();
         var dir = Path.Combine(outputDir, sf);
@@ -129,16 +127,29 @@ public static class XPABWriter
         PrepDirectory(dir);
 
         var manifest = BuildPipeline.BuildAssetBundles(dir, [buildMap], ABConfigs, target.GetBuildTarget());
+        var filePath = Path.Combine(dir, buildMap.assetBundleName);
 
-        if (manifest == null || !File.Exists(Path.Combine(dir, buildMap.assetBundleName)))
+        if (manifest == null || !File.Exists(filePath))
             throw new SerializationException($"Failed to build platform bundle for {target}.");
+
+        bundles[target] = filePath;
     }
 
     private static void PrepDirectory(string path)
     {
         if (Directory.Exists(path))
-            Directory.Delete(path, true);
+        {
+            var dirInfo = new DirectoryInfo(path);
 
-        Directory.CreateDirectory(path);
+            foreach (var file in dirInfo.GetFiles())
+                file.Delete();
+
+            foreach (var dir in dirInfo.GetDirectories())
+                dir.Delete(true);
+        }
+        else
+        {
+            Directory.CreateDirectory(path);
+        }
     }
 }

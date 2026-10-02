@@ -17,4 +17,6 @@ internal static partial class OtherExtensions
         TargetPlatform.Switch => BuildTarget.Switch,
         _ => throw new ArgumentOutOfRangeException(nameof(target), target, "Received an unsupported platform."),
     };
+
+    public static bool ShouldBundleAsset(this string path) => Path.GetExtension(path) is "shader" or "shadergraph";
 }

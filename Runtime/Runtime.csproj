@@ -27,5 +27,10 @@
 
     <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Il2Cpp'" Include="../BepIl2Cpp/*.dll" Private="false" />
     <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Il2Cpp'" Include="../MelonIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Il2Cpp'" Include="../CustomIl2Cpp/*.dll" Private="false" />
+
+    <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Mono'" Include="../BepMono/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Mono'" Include="../MelonMono/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Mono'" Include="../CustomMono/*.dll" Private="false" />
   </ItemGroup>
 </Project>

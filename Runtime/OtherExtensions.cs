@@ -5,7 +5,7 @@ internal static partial class OtherExtensions
     [SuppressMessage("Major Code Smell", "S3928:Parameter names used into ArgumentException constructors should match an existing one ", Justification = "Ignore obvious issue, can't use nameof in this context.")]
     public static TargetPlatform GetTargetPlatform() => Application.platform switch
     {
-        // Windows (Client, Dedicated Server, and Editor)
+        // Windows
         RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsServer or RuntimePlatform.WindowsEditor => Environment.Is64BitProcess ? TargetPlatform.Windows64 : TargetPlatform.Windows32,
 
         // Mac
@@ -31,4 +31,13 @@ internal static partial class OtherExtensions
 
         _ => throw new ArgumentOutOfRangeException("Application.platform", Application.platform, "The runtime cannot read asset bundles on unsupported platforms."),
     };
+
+    public static TValue GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, Func<TKey, TValue> add)
+        where TKey : notnull
+    {
+        if (!dict.TryGetValue(key, out var value))
+            dict[key] = value = add(key);
+
+        return value;
+    }
 }

@@ -20,6 +20,9 @@ public static class XPABCore
         ClassInjector.RegisterTypeInIl2Cpp<BinaryAsset>();
 #endif
 
+        if (!Directory.Exists(CachePath))
+            Directory.CreateDirectory(CachePath);
+
         XPABLogger.Info("Initialised!");
     }
 }

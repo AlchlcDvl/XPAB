@@ -4,6 +4,12 @@ internal static partial class OtherExtensions
 {
     public static IEnumerable<T> Except<T>(this IEnumerable<T> source, Func<T, bool> predicate) => source.Where(x => !predicate(x));
 
+    public static void Foreach<T>(this IEnumerable<T> source, Action<T> action)
+    {
+        foreach (var item in source)
+            action(item);
+    }
+
     public static string GetShortForm(this TargetPlatform target) => target switch
     {
         TargetPlatform.Windows32 => "win32",

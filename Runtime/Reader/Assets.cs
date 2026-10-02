@@ -4,21 +4,16 @@ using XPAB.Assets;
 
 namespace XPAB.Reader;
 
-internal partial class AssetReader
+internal partial class XPABReader
 {
-    private static readonly Func<byte[], string> DecodeString = (Func<byte[], string>)typeof(TextAsset).GetMethod("DecodeString").CreateDelegate(typeof(Func<byte[], string>));
-
-    public TextAsset ReadTextAssetV1(string name)
+    public TextAsset ReadTextAsset(string name)
     {
-        _ = ReadPackedInt32(); // No metadata
         var bytes = ReadBytesAndSize();
-        return new TextAsset(DecodeString(bytes)) { name = name };
+        return new TextAsset(TextAsset.DecodeString(bytes)) { name = name };
     }
 
-    public BinaryAsset ReadBinaryAssetV1(string name, string ext)
+    public BinaryAsset ReadBinaryAsset(string name, string ext)
     {
-        _ = ReadPackedInt32(); // No metadata
-
         var path = Path.Combine(XPABCore.CachePath, $"{name}.{ext}");
 
         ReadToFile(path);
@@ -31,16 +26,11 @@ internal partial class AssetReader
         return asset;
     }
 
-    public AudioClip ReadAudioClipV1(string name)
+    public AudioClip ReadAudioClip(string name)
     {
-        using var metadataStream = new MemoryStream();
-        ReadStreamAndLength(metadataStream);
-        metadataStream.Position = 0;
-
-        using var metaReader = new AssetReader(metadataStream);
-        var samples = metaReader.ReadPackedInt32();
-        var channels = metaReader.ReadPackedInt32();
-        var frequency = metaReader.ReadPackedInt32();
+        var samples = ReadPackedInt32();
+        var channels = ReadPackedInt32();
+        var frequency = ReadPackedInt32();
 
         using var compressedStream = new MemoryStream();
         ReadStreamAndLength(compressedStream);
@@ -50,7 +40,7 @@ internal partial class AssetReader
         var audioData = new float[totalSamples];
 
         using (var brotliStream = new BrotliStream(compressedStream, CompressionMode.Decompress, true))
-        using (var fileReader = new AssetReader(brotliStream, Encoding.UTF8, true))
+        using (var fileReader = new XPABReader(brotliStream, Encoding.UTF8, true))
         {
             for (var i = 0; i < totalSamples; i++)
                 audioData[i] = fileReader.ReadInt16() / 32767f;
@@ -58,32 +48,32 @@ internal partial class AssetReader
 
         var clip = AudioClip.Create(name, samples, channels, frequency, false);
         clip.SetData(audioData, 0);
-
         return clip;
     }
 
-    public Texture2D ReadTexture2DV1(string name)
+    public Texture2D ReadTexture2D(string name)
     {
-        using var metadataStream = new MemoryStream();
-        ReadStreamAndLength(metadataStream);
-        metadataStream.Position = 0;
+        var filterMode = ReadPackedEnum<FilterMode>();
+        var wrapMode = ReadPackedEnum<TextureWrapMode>();
+        var wrapModeU = ReadPackedEnum<TextureWrapMode>();
+        var wrapModeV = ReadPackedEnum<TextureWrapMode>();
+        var wrapModeW = ReadPackedEnum<TextureWrapMode>();
+        var anisoLevel = ReadPackedInt32();
+        var hasMips = ReadBoolean();
+        var isSRGB = ReadBoolean();
+        var isReadable = ReadBoolean();
+        var bytes = ReadBytesAndSize();
 
-        using var metaReader = new AssetReader(metadataStream);
-        var filterMode = (FilterMode)metaReader.ReadPackedInt32();
-        var wrapMode = (TextureWrapMode)metaReader.ReadPackedInt32();
-        var anisoLevel = metaReader.ReadPackedInt32();
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, hasMips, isSRGB) { name = name };
 
-        using var imageStream = new MemoryStream();
-        ReadStreamAndLength(imageStream);
-
-        var tex = new Texture2D(2, 2) { name = name };
-
-        ImageConversion.LoadImage(tex, imageStream.ToArray());
-
+        tex.LoadImage(bytes);
         tex.filterMode = filterMode;
+        tex.wrapModeU = wrapModeU;
+        tex.wrapModeV = wrapModeV;
+        tex.wrapModeW = wrapModeW;
         tex.wrapMode = wrapMode;
         tex.anisoLevel = anisoLevel;
-        tex.Apply();
+        tex.Apply(hasMips, !isReadable);
 
         return tex;
     }

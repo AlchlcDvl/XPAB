@@ -1,14 +1,12 @@
-# XPAB
+# XPAB (Cross-Platform Asset Bundle)
 
-Short for "Cross-Platform Asset Bundle", `xpab` is an attempt at creating a cross-platform asset bundle format for Unity modding in C#.
+`xpab` is an attempt at creating a cross-platform asset bundle format for Unity modding in C#.
 
 Unity's native asset bundle system is inherently flawed for modding: if a game exists on multiple platforms (Windows, Mac, Linux, Android, etc), mod sizes bloat massively in an attempt to maintain compatibility because assets must be duplicated and compiled for each specific target.
 
 This file type isn't perfect, it cannot be *truly* platform agnostic because engine-specific assets like shaders require specific instruction sets. This project aims to drastically reduce mod size bloat by isolating platform dependent data and generalizing everything else.
 
-Best of all, these files are engineered to be both backward and forward compatible as much as possible.
-
-The project comes with an Editor dll (the serialiser) for you to drop into your editor to begin compiling, and a Runtime dll (the deserialiser) for you to load into BepInEx/MelonLoader (can be loaded by either) and get started with loading assets.
+The project comes with an Editor dll (the serialiser) for you to drop into your editor to begin compiling, and a Runtime dll (the deserialiser) for you to load into BepInEx/MelonLoader/any custom mod loader (can be loaded by either) and get started with loading assets.
 
 ### Example (Hypothetical)
 Say we have an asset bundle that is 10MB, of which 1MB is shaders. The target game runs on Windows, Mac, and Linux.
@@ -30,6 +28,8 @@ If an `.xpab` file is used instead, the 9MB of generic assets (textures, audio, 
 - [ ] Handle deserialising a string pool from a file
 - [ ] Handle serialisation and deserialisation of assets (see table below)
 - [ ] Add checksum behaviour
+  - [x] Serialise the checksum
+  - [ ] Check and compare on read
 - [ ] Finalise binary
 - [ ] Test
 - [ ] Update README with actual numbers from tests
@@ -51,6 +51,8 @@ If an `.xpab` file is used instead, the 9MB of generic assets (textures, audio, 
 | Data configs (`ScriptableObject`) | ❌           | ❌             |
 | Prefabs (`GameObject`)            | ❌           | ❌             |
 
+✅ = Supported | ❌ = Not yet implemented / Researching
+
 ---
 
 ## Building the Project
@@ -62,11 +64,15 @@ There are pre-configured (and gitignored) reference folders in the root folder w
 ### Configuration
 
 The project has two build properties to make use of when compiling the project.
-- `ModLoader`: Choose between `None` (Standalone, useful for if you want to load it yourself), `BepInEx`, `MelonLoader` and `Custom` (for non-conventional mod loaders, you must write the initialisation logic yourself for this target). This lets the asset reader to be loaded either manually, or by the mod loader it's compiled against.
+- `ModLoader`: Choose between `None` (Standalone, useful for if you want to load it yourself), `BepInEx`, `MelonLoader` and `Custom` (for non-conventional mod loaders, you must write the initialisation logic yourself for this target in a gitignored `XPABCore.Custom.cs` file). This lets the asset reader to be loaded either manually, or by the mod loader it's compiled against.
 - `CompileTarget`: Choose between `Mono` and `Il2Cpp` when compiling the project. This corresponds to the scripting backends of Unity with the same name. There are key differences between the two, so it's important that asset creation match the backend exactly lest you feel the wrath of the engine.
 
 When building the project, either set the values in the `csproj` like this: `<PropertyName>Value</PropertyName>`\
 Or pass them into the build command like this: `/p:PropertyName=Value`
+
+> Note: Unity 6.7+ ships with CoreCLR and has begun deprecating Mono, and most mod loaders already do so as well. The `Mono` compile target still works since CoreCLR is just an upgraded version of it.
+
+### DLL References
 
 Here are the libraries you need to extract and place into their respective folders:
 
@@ -101,9 +107,11 @@ Here are the libraries you need to extract and place into their respective folde
 
 For the `Custom` loader configuration, navigate to the relevant folders and copy the minimum required dlls into the `CustomLoader` folder.
 
+For Il2Cpp or Mono specific dlls for the mod loader, they can be dropped into the `[Bep/Melon/Custom][Il2Cpp/Mono]` folder (also gitignored).
+
 Forewarning: Only copy over the minimum required dlls (above mentioned + any few extra dlls that the build process might require) to ensure an optimal development experience. Adding extra only serves to bloat your project for no added benefit.
 
-This project is a work-in-progress! Feel free to contribute! Check back frequently for updates!
+You can also use the nuget package equivalent of any of the above dll sets, but I find it easier to do it manually instead.
 
 ---
 
@@ -113,22 +121,22 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
 
 ```text
 -- Header
-[XPAB]                  (ASCII, 4 Bytes)
-[File Version]          (ULEB128)
+["XPAB"]                (String)  -- Prefix-less ASCII
 
--- Embedded Unity bundles for assets that cannot be made platform agnostic (eg, shaders)
+[Bundle Name]           (String)  -- ULEB128 prefixed UTF-8
+
+-- Embedded Unity bundles for assets that cannot be made platform agnostic
 [Target Count]          (ULEB128)
-[Asset Bundle Version]  (ULEB128) -- Only written if Target Count > 0
 
-  [Target ID]           (Byte)
+  [Target ID]           (ULEB128) -- Enum
   [Byte Count]          (ULEB128)
   [Bytes]               (Byte[])
   -- Repeats per platform target
 
--- String pool to avoid repeated strings
+-- String pool to avoid repeated strings, compressed using Brotli
 [String Count]          (ULEB128)
 
-  [String]              (String) -- Future string writes will write a packed index instead of the actual string itself, ULEB128 prefixed UTF-8
+  [String]              (String)  -- Future string writes will write a packed index instead of the actual string itself
 
 [Master TOC Pos]        (Int64)
 
@@ -136,17 +144,14 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
   [Asset Group TOC Pos] (Int64)
 
     -- Assets
-    [Asset Data Length] (ULEB128)
     [Asset Metadata]    (Variable)
-    [Byte Count]        (ULEB128)
-    [Bytes]             (Byte[])
+    [File Bytes]        (Byte[])  -- Only serialised if any
     -- Repeats per asset
 
   -- Asset Group Table of Contents
   [Asset Count]         (ULEB128)
 
     -- Asset Entry
-    [Entry Length]      (ULEB128)
     [Path]              (ULEB128)
     [File Name]         (ULEB128)
     [File Extension]    (SLEB128) -- Refers to the index in the Master TOC's file extension array, -1 for no extension
@@ -156,12 +161,10 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
   -- Repeats per asset type group
 
 -- Master Table of Contents
-[Type Count]            (Byte)
+[Type Count]            (ULEB128)
 
   -- Group Entry
-  [Entry Length]        (ULEB128)
-  [Type ID]             (Byte)
-  [Type Version]        (ULEB128)
+  [Type ID]             (ULEB128) -- Enum
   [Group Pos]           (Int64)
   [Extension Count]     (ULEB128)
 
@@ -171,14 +174,18 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
   -- Repeats per asset type
 
 -- Footer
-[Checksum]              (Byte[]) -- SHA-256
-[BAPX]                  (ASCII, 4 Bytes)
+["BAPX"]                (String)  -- Prefix-less ASCII
+[Checksum]              (Byte[])  -- SHA-256
 ```
 
 The file will be little endian.
 
 ---
 
+This project is a work-in-progress! Feel free to contribute! Check back frequently for updates!
+
+---
+
 ## License
 
-This project is provided under the MIT license.
+This project is provided under the [MIT license](LICENSE).
