@@ -120,18 +120,18 @@ Then, you drop the `XPAB.Editor.dll` file anywhere in your plugins folder in you
 
 The editor dll provides you with two actions: `Create Config` (Project Context Menu) and `Build Bundles` (Top Toolbar).
 
-You can create an `XPABConfig` instance using the "Create Config" context action in the "XPAB" section. You can create multiple config; each instance corresponds to a unique XPAB file.
+You can create an `XPABConfig` instance using the "Create Config" context action in the "XPAB" section. You can create multiple configs; each instance corresponds to a unique XPAB file.
 
-Once you set the file name and target platforms in the config, you must mark the assets you want to bundle with a label (just like how you would when building normal asset bundles).
+Once you set the file name, target platforms and other such settings in the config, you must add your desired assets into the object array in the inspector.
 
-Once that is over, simply head over to the toolbar menu, and under the "XPAB" header, you can select "Build Bundles" action. This will build the bundles as needed.
+To complete the process, simply head over to the toolbar menu, and under the "XPAB" header, you can select "Build Bundles" action. This will build the bundles as needed.
 
 ### In The Runtime
 
 You can ship the bundle however you'd like. Using the appropriate load method, you can load an XPAB file:
 ```cs
 var assembly = Assembly.GetExecutingAssembly(); // Or however else you retrieve the reference to your dll
-var path = /* Path to your asset */;
+var path = /* Path to your xpab file */;
 var bundle = XPAssetBundle.LoadFromAssembly(path, assembly, shouldUnloadOnDispose); // shouldUnloadOnDispose is used to delete assets when the bundle itself is unloaded
  // Also has alternatives: LoadFromMemory(Stream, bool), LoadFromMemory(byte[], bool), LoadFromAssembly(string, bool) and LoadFromFile(string, bool)
 var someText = bundle.LoadAsset<TextAsset>("someText"); // You can also specify the full path, and the file extension is optional
