@@ -37,8 +37,6 @@ flowchart TD
     end
 ```
 
-After that, the ball is in your court.
-
 ---
 
 ## Building the Project
@@ -141,6 +139,8 @@ var someText = bundle.LoadAsset<TextAsset>("someText"); // You can also specify 
 bundle.Unload(); // Unloads the assets, also does the same on disposal
 ```
 
+After that, the ball is in your court.
+
 ---
 
 ## The Binary Format
@@ -211,11 +211,14 @@ The file will be little endian.
 
 - [x] Set up project and configurations
 - [x] Set up build options in Editor project
-- [x] Handle serialising asset bundles into the file
-- [x] Handle deserialising asset bundles from a file
-- [ ] Handle serialising a string pool into the file
-- [ ] Handle deserialising a string pool from a file
-- [ ] Handle serialisation and deserialisation of assets (see table below)
+- [x] Handle asset bundles
+  - [x] Building
+  - [x] Writing to file
+  - [x] Reading from file
+- [ ] Handle string pools
+  - [ ] Writing to file
+  - [ ] Reading from file
+- [ ] Handle serialisation and deserialisation of assets (see matrix below)
 - [x] Add checksum behaviour
   - [x] Serialise the checksum
   - [x] Check and compare on read
