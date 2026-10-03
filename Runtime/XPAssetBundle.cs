@@ -4,12 +4,16 @@ using System.Text;
 using XPAB.Internal;
 using XPAB.Reader;
 
+#if IL2CPP
+using Il2CppInterop.Runtime;
+#endif
+
 namespace XPAB;
 
 /// <summary>An asset bundle made to be cross-platform.</summary>
 public sealed class XPAssetBundle : IDisposable
 {
-    private readonly Dictionary<(Type, string), UObject> loadedAssets = [];
+    private readonly Dictionary<(Type Type, string Path), UObject> loadedAssets = [];
 
     private bool shouldUnloadAssets;
     private AssetBundle bundle;
@@ -188,6 +192,9 @@ public sealed class XPAssetBundle : IDisposable
             XPABLogger.Warning($"XPAB file {name} was garbage collected without being disposed! Native Unity assets cannot be unloaded from the finalizer.");
         }
     }
+
+    /// <summary>Unloads the bundle.</summary>
+    public void Unload() => Dispose();
 
     /// <inheritdoc/>
     public void Dispose()

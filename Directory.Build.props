@@ -36,7 +36,10 @@
     <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" Version="5.0.0" PrivateAssets="all" />
     <PackageReference Include="SonarAnalyzer.CSharp" Version="10.32.0.713" PrivateAssets="all" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all" />
+
     <PackageReference Include="Krafs.Publicizer" Version="2.3.2" PrivateAssets="all" />
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.48" PrivateAssets="all" />
+
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)/stylecop.json" Link="stylecop.json" Visible="false" />
 
     <Publicize Include="UnityEngine.CoreModule" IncludeCompilerGeneratedMembers="false" />

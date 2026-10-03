@@ -8,7 +8,10 @@ namespace XPAB;
 /// <summary>A utility class that writes an XPAB file.</summary>
 public static class WriteXPAB
 {
-    private const BuildAssetBundleOptions ABConfigs = BuildAssetBundleOptions.UncompressedAssetBundle |
+    private const BuildAssetBundleOptions ABConfigs = BuildAssetBundleOptions.ChunkBasedCompression |
+                                                      BuildAssetBundleOptions.DisableWriteTypeTree |
+                                                      BuildAssetBundleOptions.DisableLoadAssetByFileName |
+                                                      BuildAssetBundleOptions.DisableLoadAssetByFileNameWithExtension |
                                                       BuildAssetBundleOptions.ForceRebuildAssetBundle |
                                                       BuildAssetBundleOptions.AssetBundleStripUnityVersion;
 
@@ -43,9 +46,21 @@ public static class WriteXPAB
     /// <param name="config">The configuration that dictates the serialisation behaviour.</param>
     public static void CreateBundle(XPABConfig config)
     {
+        var dirPath = config.filePath?.Length is > 0 ? Path.Combine(config.filePath) : OutputPath;
+
+        try
+        {
+            if (!Directory.Exists(dirPath))
+                Directory.CreateDirectory(dirPath);
+        }
+        catch
+        {
+            dirPath = OutputPath;
+        }
+
         var sanitizedName = string.Join("_", config.fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
         var temp = Path.Combine(TempPath, $"temp_{sanitizedName}");
-        var filePath = Path.Combine(OutputPath, $"{sanitizedName}.xpab");
+        var filePath = Path.Combine(dirPath, $"{sanitizedName}.xpab");
 
         try
         {
@@ -53,8 +68,11 @@ public static class WriteXPAB
 
             var activeTargets = config.targets?.Distinct()?.ToArray() ?? [];
 
-            var assets = AssetDatabase.FindAssets($"l:xpab_{sanitizedName}")
-                .Select(AssetDatabase.GUIDToAssetPath)
+            var assets = (config.assetsToBundle ?? [])
+                .Where(obj => obj != null)
+                .Select(AssetDatabase.GetAssetPath)
+                .Where(path => !string.IsNullOrEmpty(path))
+                .Distinct()
                 .ToLookup(OtherExtensions.ShouldBundleAsset);
 
             var bundleAssets = assets[true].ToArray();
@@ -63,10 +81,10 @@ public static class WriteXPAB
             var hasBundles = bundleAssets.Length > 0 && activeTargets.Length > 0;
 
             if (bundleAssets.Length > 0 && activeTargets.Length == 0)
-                Debug.LogWarning($"Bundle assets were tagged for {sanitizedName}, but no target platforms were configured. Asset bundle building will be skipped.");
+                Debug.LogWarning($"Bundle assets were assigned for {sanitizedName}, but no target platforms were configured. Asset bundle building will be skipped.");
 
             if (bundleAssets.Length == 0 && activeTargets.Length > 0)
-                Debug.LogWarning($"Bundle platform targets for {sanitizedName} were defined, but no assets were tagged for it. Asset bundle building will be skipped.");
+                Debug.LogWarning($"Bundle platform targets for {sanitizedName} were defined, but no platform-dependent assets were assigned. Asset bundle building will be skipped.");
 
             var bundles = new Dictionary<TargetPlatform, string>();
 
@@ -99,7 +117,7 @@ public static class WriteXPAB
                 writer.WritePacked(0u);
             }
 
-            // String Pool, Assets and Master TOC to be written
+            // TODO: String Pool, Assets and Master TOC
 
             writer.Write(Encoding.ASCII.GetBytes(Constants.Footer));
 

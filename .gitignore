@@ -12,4 +12,6 @@ MelonLoader*/
 MelonLoader*
 CustomLoader*/
 CustomLoader*
+Game/
+Game
 Runtime/XPABCore.Custom.cs

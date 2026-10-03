@@ -26,54 +26,122 @@ internal partial class XPABReader
         return asset;
     }
 
-    public AudioClip ReadAudioClip(string name)
+    public AudioClip ReadAudioClip(string name, AudioSerialisationSettings settings)
     {
         var samples = ReadPackedInt32();
         var channels = ReadPackedInt32();
         var frequency = ReadPackedInt32();
 
-        using var compressedStream = new MemoryStream();
-        ReadStreamAndLength(compressedStream);
-        compressedStream.Position = 0;
+        using var dataStream = new MemoryStream();
+        ReadStreamAndLength(dataStream);
+        dataStream.Position = 0;
 
         var totalSamples = samples * channels;
         var audioData = new float[totalSamples];
 
-        using (var brotliStream = new BrotliStream(compressedStream, CompressionMode.Decompress, true))
-        using (var fileReader = new XPABReader(brotliStream, Encoding.UTF8, true))
+        switch (settings.compressionMethod)
         {
-            for (var i = 0; i < totalSamples; i++)
-                audioData[i] = fileReader.ReadInt16() / 32767f;
+            case AudioCompressionMethod.Vorbis:
+            {
+                AudioDecoder.DecodeVorbis(dataStream, audioData, totalSamples);
+                break;
+            }
+
+            case AudioCompressionMethod.ADPCM:
+            {
+                AudioDecoder.DecodeAdpcm(dataStream, audioData, channels);
+                break;
+            }
+
+            default:
+            {
+                Stream targetStream = dataStream;
+
+                try
+                {
+                    if (settings.compressionMethod == AudioCompressionMethod.Brotli)
+                        targetStream = new BrotliStream(dataStream, CompressionMode.Decompress, true);
+
+                    using var reader = new XPABReader(targetStream, Encoding.UTF8, true);
+                    AudioDecoder.DequantizeAudio(audioData, settings.bitDepth, reader);
+                }
+                finally
+                {
+                    if (targetStream is BrotliStream brotli)
+                        brotli.Dispose();
+                }
+
+                break;
+            }
         }
 
         var clip = AudioClip.Create(name, samples, channels, frequency, false);
-        clip.SetData(audioData, 0);
+
+        if (clip.SetData(audioData, 0))
+            throw new InvalidDataException("The audio data could not be set correctly.");
+
         return clip;
     }
 
-    public Texture2D ReadTexture2D(string name)
+    public Texture2D ReadTexture2D(string name, Texture2DSerialisationSettings settings)
     {
+        var width = ReadPackedUInt32();
+        var height = ReadPackedUInt32();
+        var format = ReadPackedEnum<TextureFormat>();
+        var mipmapCount = ReadPackedUInt32();
+
         var filterMode = ReadPackedEnum<FilterMode>();
-        var wrapMode = ReadPackedEnum<TextureWrapMode>();
         var wrapModeU = ReadPackedEnum<TextureWrapMode>();
         var wrapModeV = ReadPackedEnum<TextureWrapMode>();
         var wrapModeW = ReadPackedEnum<TextureWrapMode>();
+        var wrapMode = ReadPackedEnum<TextureWrapMode>();
         var anisoLevel = ReadPackedInt32();
-        var hasMips = ReadBoolean();
         var isSRGB = ReadBoolean();
         var isReadable = ReadBoolean();
-        var bytes = ReadBytesAndSize();
 
-        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, hasMips, isSRGB) { name = name };
+        using var dataStream = new MemoryStream();
+        ReadStreamAndLength(dataStream);
+        dataStream.Position = 0;
 
-        tex.LoadImage(bytes);
-        tex.filterMode = filterMode;
-        tex.wrapModeU = wrapModeU;
-        tex.wrapModeV = wrapModeV;
-        tex.wrapModeW = wrapModeW;
-        tex.wrapMode = wrapMode;
-        tex.anisoLevel = anisoLevel;
-        tex.Apply(hasMips, !isReadable);
+        Stream targetStream = dataStream;
+        byte[] textureData;
+
+        try
+        {
+            if (settings.compressionMethod == Texture2DCompressionMethod.Brotli)
+                targetStream = new BrotliStream(dataStream, CompressionMode.Decompress, true);
+
+            using var fileReader = new XPABReader(targetStream, Encoding.UTF8, true);
+            textureData = fileReader.ReadBytesAndSize();
+        }
+        finally
+        {
+            if (targetStream is BrotliStream brotli)
+                brotli.Dispose();
+        }
+
+        var tex = new Texture2D((int)width, (int)height, format, (int)mipmapCount, !isSRGB)
+        {
+            name = name,
+            filterMode = filterMode,
+            wrapModeU = wrapModeU,
+            wrapModeV = wrapModeV,
+            wrapModeW = wrapModeW,
+            wrapMode = wrapMode,
+            anisoLevel = anisoLevel,
+        };
+
+        if (settings.compressionMethod is Texture2DCompressionMethod.PNG or Texture2DCompressionMethod.JPG)
+        {
+            if (!tex.LoadImage(textureData))
+                throw new InvalidDataException("Could not correctly read file data.");
+        }
+        else
+        {
+            tex.LoadRawTextureData(textureData);
+        }
+
+        tex.Apply(mipmapCount > 1, !isReadable);
 
         return tex;
     }

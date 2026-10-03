@@ -18,6 +18,8 @@
   <ItemGroup>
     <Compile Include="../Core/**/*.cs" />
 
+    <Reference Include="../Game/*.dll" Private="false" />
+
     <Reference Condition="'$(CompileTarget)' == 'Mono'" Include="../UnityMono/*.dll" Private="false" />
     <Reference Condition="'$(CompileTarget)' == 'Il2Cpp'" Include="../UnityIl2Cpp/*.dll" Private="false" />
 
@@ -32,5 +34,22 @@
     <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Mono'" Include="../BepMono/*.dll" Private="false" />
     <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Mono'" Include="../MelonMono/*.dll" Private="false" />
     <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Mono'" Include="../CustomMono/*.dll" Private="false" />
+
+    <PackageReference Include="NVorbis" Version="1.0.0-rc.2" />
   </ItemGroup>
+
+  <Target Name="ILRepack" AfterTargets="Build">
+    <ItemGroup>
+      <InputAssemblies Include="$(OutputPath)$(AssemblyName).dll" />
+      <InputAssemblies Include="$(OutputPath)NVorbis.dll" />
+    </ItemGroup>
+
+    <ILRepack
+      OutputType="Dll"
+      Internalize="true"
+      MainAssembly="$(OutputPath)$(AssemblyName).dll"
+      OutputAssembly="$(OutputPath)$(AssemblyName).dll"
+      InputAssemblies="@(InputAssemblies)"
+      LibraryPath="$(OutputPath)" />
+  </Target>
 </Project>

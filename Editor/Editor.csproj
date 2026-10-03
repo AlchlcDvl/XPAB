@@ -9,5 +9,22 @@
 
     <Reference Include="../UnityMono/*.dll" Private="false" />
     <Reference Include="../UnityEditor/*.dll" Private="false" />
+
+    <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
   </ItemGroup>
+
+  <Target Name="ILRepack" AfterTargets="Build">
+    <ItemGroup>
+      <InputAssemblies Include="$(OutputPath)$(AssemblyName).dll" />
+      <InputAssemblies Include="$(OutputPath)OggVorbisEncoder.dll" />
+    </ItemGroup>
+
+    <ILRepack
+      OutputType="Dll"
+      Internalize="true"
+      MainAssembly="$(OutputPath)$(AssemblyName).dll"
+      OutputAssembly="$(OutputPath)$(AssemblyName).dll"
+      InputAssemblies="@(InputAssemblies)"
+      LibraryPath="$(OutputPath)" />
+  </Target>
 </Project>
