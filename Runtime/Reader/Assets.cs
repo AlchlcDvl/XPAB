@@ -12,17 +12,28 @@ internal partial class XPABReader
         return new TextAsset(TextAsset.DecodeString(bytes)) { name = name };
     }
 
-    public BinaryAsset ReadBinaryAsset(string name, string ext)
+    public BinaryAsset ReadBinaryAsset(string bundleName, string name, string ext, List<IDisposable> registry)
     {
-        var path = Path.Combine(XPABCore.CachePath, $"{name}.{ext}");
+        var expectedLength = (long)ReadPackedUInt64();
+        var safeFileName = $"{bundleName}_{name}.{ext}";
+        var path = Path.Combine(XPABCore.CachePath, safeFileName);
 
-        ReadToFile(path);
+        if (!File.Exists(path) || new FileInfo(path).Length != expectedLength)
+        {
+            using var fs = File.Create(path);
+            ReadToStream(fs, expectedLength);
+        }
+        else
+        {
+            Position += expectedLength;
+        }
 
         var asset = ScriptableObject.CreateInstance<BinaryAsset>();
         asset.file = path;
         asset.name = name;
-        asset.FileStream = File.OpenRead(path);
+        asset.FileStream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
+        registry.Add(asset);
         return asset;
     }
 
@@ -77,13 +88,13 @@ internal partial class XPABReader
 
         var clip = AudioClip.Create(name, samples, channels, frequency, false);
 
-        if (clip.SetData(audioData, 0))
+        if (!clip.SetData(audioData, 0))
             throw new InvalidDataException("The audio data could not be set correctly.");
 
         return clip;
     }
 
-    public Texture2D ReadTexture2D(string name, Texture2DSerialisationSettings settings)
+    public Texture2D ReadTexture2D(string name, Texture2DCompressionMethod method)
     {
         var width = ReadPackedUInt32();
         var height = ReadPackedUInt32();
@@ -94,30 +105,23 @@ internal partial class XPABReader
         var wrapModeU = ReadPackedEnum<TextureWrapMode>();
         var wrapModeV = ReadPackedEnum<TextureWrapMode>();
         var wrapModeW = ReadPackedEnum<TextureWrapMode>();
-        var wrapMode = ReadPackedEnum<TextureWrapMode>();
         var anisoLevel = ReadPackedInt32();
         var isSRGB = ReadBoolean();
         var isReadable = ReadBoolean();
 
-        using var dataStream = new MemoryStream();
-        ReadStreamAndLength(dataStream);
-        dataStream.Position = 0;
-
-        Stream targetStream = dataStream;
+        var payloadLength = (long)ReadPackedUInt64();
         byte[] textureData;
 
-        try
+        if (method == Texture2DCompressionMethod.Brotli)
         {
-            if (settings.compressionMethod == Texture2DCompressionMethod.Brotli)
-                targetStream = new BrotliStream(dataStream, CompressionMode.Decompress, true);
-
-            using var fileReader = new XPABReader(targetStream, Encoding.UTF8, true);
-            textureData = fileReader.ReadBytesAndSize();
+            using var brotli = new BrotliStream(BaseStream, CompressionMode.Decompress, true);
+            using var ms = new MemoryStream();
+            brotli.CopyTo(ms);
+            textureData = ms.ToArray();
         }
-        finally
+        else
         {
-            if (targetStream is BrotliStream brotli)
-                brotli.Dispose();
+            textureData = ReadBytes((int)payloadLength);
         }
 
         var tex = new Texture2D((int)width, (int)height, format, (int)mipmapCount, !isSRGB)
@@ -127,22 +131,22 @@ internal partial class XPABReader
             wrapModeU = wrapModeU,
             wrapModeV = wrapModeV,
             wrapModeW = wrapModeW,
-            wrapMode = wrapMode,
             anisoLevel = anisoLevel,
         };
 
-        if (settings.compressionMethod is Texture2DCompressionMethod.PNG or Texture2DCompressionMethod.JPG)
+        var isEncoded = method is Texture2DCompressionMethod.PNG or Texture2DCompressionMethod.JPG;
+
+        if (isEncoded)
         {
             if (!tex.LoadImage(textureData))
-                throw new InvalidDataException("Could not correctly read file data.");
+                throw new InvalidDataException("Could not correctly decode image payload.");
         }
         else
         {
             tex.LoadRawTextureData(textureData);
         }
 
-        tex.Apply(mipmapCount > 1, !isReadable);
-
+        tex.Apply(isEncoded && mipmapCount > 1, !isReadable);
         return tex;
     }
 }

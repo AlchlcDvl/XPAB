@@ -48,19 +48,6 @@ public enum AudioCompressionMethod : byte
     Vorbis,
 }
 
-/// <summary>A configuration holder that dictates how <see cref="Texture2D"/>s are serialised.</summary>
-[SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Unity convention.")]
-[SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "Read above.")]
-[Serializable]
-public sealed class Texture2DSerialisationSettings
-{
-    /// <summary>How the texture bytes are compressed inside the XPAB file.</summary>
-#if UNITY_EDITOR
-    [Tooltip("How the texture bytes are compressed inside the XPAB file.")]
-#endif
-    public Texture2DCompressionMethod compressionMethod = Texture2DCompressionMethod.Brotli;
-}
-
 /// <summary>Specifies the algorithm and format used to compress texture data.</summary>
 public enum Texture2DCompressionMethod : byte
 {
@@ -75,4 +62,17 @@ public enum Texture2DCompressionMethod : byte
 
     /// <summary>Encodes the texture to a lossy JPG format.</summary>
     JPG,
+}
+
+/// <summary>Specifies the compression type for asset bundles.</summary>
+public enum AssetBundleCompressionType : byte
+{
+    /// <summary>The bundle is fully compressed, producing smaller file sizes but requires more decompression.</summary>
+    FullyCompressed,
+
+    /// <summary>There is no compression used.</summary>
+    Uncompressed,
+
+    /// <summary>Assets are compressed by chunks, producing a somewhat compressed file with a faster asset read time.</summary>
+    ChunkedCompression,
 }

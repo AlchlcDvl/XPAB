@@ -19,4 +19,11 @@ internal static partial class OtherExtensions
     };
 
     public static bool ShouldBundleAsset(this string path) => Path.GetExtension(path) is "shader" or "shadergraph";
+
+    public static BuildAssetBundleOptions GetCompression(this AssetBundleCompressionType type) => type switch
+    {
+        AssetBundleCompressionType.Uncompressed => BuildAssetBundleOptions.UncompressedAssetBundle,
+        AssetBundleCompressionType.ChunkedCompression => BuildAssetBundleOptions.ChunkBasedCompression,
+        _ => BuildAssetBundleOptions.None,
+    };
 }

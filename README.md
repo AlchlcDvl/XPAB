@@ -6,9 +6,13 @@
 
 Unity's native asset bundle system is inherently flawed for modding: if a game exists on multiple platforms (Windows, Mac, Linux, Android, etc), mod sizes bloat massively in an attempt to maintain compatibility because assets must be duplicated and compiled for each specific target.
 
-This file type isn't perfect, it cannot be *truly* platform agnostic because engine-specific assets like shaders require specific instruction sets. This project aims to drastically reduce mod size bloat by isolating platform dependent data and generalizing everything else.
+### Solution
 
-### Example (Hypothetical)
+This file type isn't perfect, it cannot be *truly* platform agnostic because engine-specific assets like shaders require specific instruction sets. This project aims to drastically reduce mod size bloat by isolating platform dependent data and generalising everything else.
+
+### Example
+> Hypothetical, since no tests have been conducted yet
+
 Say we have an asset bundle that is 10MB, of which 1MB is shaders. The target game runs on Windows, Mac, and Linux.
 
 Normally, to support all platforms, the modder must embed three separate 10MB bundles. The mod's size balloons to **30MB** (excluding other data within the dll, like code).
@@ -26,14 +30,14 @@ flowchart TD
 
     subgraph XPAB [XPAB Format: 12MB]
         direction TB
-        Shared[Generic Shared Assets\nTextures, Audio, Meshes\n9MB]
-        WinShaders[Windows Shaders\n1MB]
-        MacShaders[Mac Shaders\n1MB]
-        LinShaders[Linux Shaders\n1MB]
+        SharedAssets[Generic Assets\n9MB]
+        WinAssets[Windows Assets\n1MB]
+        MacAssets[Mac Assets\n1MB]
+        LinAssets[Linux Assets\n1MB]
 
-        Shared --- WinShaders
-        Shared --- MacShaders
-        Shared --- LinShaders
+        SharedAssets --- WinAssets
+        SharedAssets --- MacAssets
+        SharedAssets --- LinAssets
     end
 ```
 
@@ -48,7 +52,7 @@ There are pre-configured (and gitignored) reference folders in the root folder w
 ### Configuration
 
 The project has two build properties to make use of when compiling the project.
-- `ModLoader`: Choose between `None` (Standalone, useful for if you want to load it yourself), `BepInEx`, `MelonLoader` and `Custom` (for non-conventional mod loaders, you must write the initialisation logic yourself for this target in a gitignored `XPABCore.Custom.cs` file). This lets the asset reader to be loaded either manually, or by the mod loader it's compiled against.
+- `ModLoader`: Choose between `None` (standalone, useful for if you want to load it yourself), `BepInEx`, `MelonLoader` and `Custom` (for non-conventional mod loaders, you must write the initialisation logic yourself for this target in a gitignored `XPABCore.Custom.cs` file). This lets the asset reader be loaded either manually, or by the mod loader it's compiled against.
 - `CompileTarget`: Choose between `Mono` and `Il2Cpp` when compiling the project. This corresponds to the scripting backends of Unity with the same name. There are key differences between the two, so it's important that asset creation match the backend exactly lest you feel the wrath of the engine.
 
 When building the project, either set the values in the `csproj` like this: `<PropertyName>Value</PropertyName>`\
@@ -57,6 +61,7 @@ Or pass them into the build command like this: `/p:PropertyName=Value`
 > Note: Unity 6.7+ ships with CoreCLR and has begun deprecating Mono, and most mod loaders already do so as well. The `Mono` compile target still works since CoreCLR is just an upgraded version of it.
 
 ### Prerequisites
+
 You need the following for the project to be usable:
 - An editor version that supports netstandard2.1 plugins
 - A game made using that same version
@@ -99,7 +104,7 @@ For the `Custom` loader configuration, navigate to the relevant folders and copy
 
 For Il2Cpp or Mono specific dlls for the mod loader, they can be dropped into the `[Bep/Melon/Custom][Il2Cpp/Mono]` folder (also gitignored).
 
-For any game-specific dlls, you can drop them into the gitignored `Game` folder. Any code relating to it can also be `Runtime` project's subfolder with the same name.
+For any game-specific dlls, you can drop them into the gitignored `Game` folder. Any code relating to it can also be in `Runtime` project's subfolder with the same name.
 
 Forewarning: Only copy over the minimum required dlls (above mentioned + any few extra dlls that the build process might require) to ensure an optimal development experience. Adding extra only serves to bloat your project for no added benefit.
 
@@ -138,6 +143,7 @@ var someText = bundle.LoadAsset<TextAsset>("someText"); // You can also specify 
 
 bundle.Unload(); // Unloads the assets, also does the same on disposal
 ```
+> Note: The resulting stream must be seekable! The reading involves a lot of jumping, which would break if the stream is forward direction only.
 
 After that, the ball is in your court.
 
@@ -149,60 +155,43 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
 
 ```text
 -- Header
-["XPAB"]                (String)  -- Prefix-less ASCII
-
-[Bundle Name]           (String)  -- ULEB128 prefixed UTF-8
+["XPAB"]             (STRING)   -- Prefix-less ASCII
+[Bundle Name]        (STRING)   -- ULEB128 prefixed UTF-8, same for all other strings
 
 -- Embedded Unity bundles for assets that cannot be made platform agnostic
-[Target Count]          (ULEB128)
-
-  [Target ID]           (ULEB128) -- Enum
-  [File Bytes]          (Byte[])  -- ULEB128 prefixed
+[Target Count]       (ULEB128)
+  [Target ID]        (ULEB128)  -- Enum
+  [File Bytes]       (BYTE[])
   -- Repeats per platform target
 
--- String pool to avoid repeated strings, compressed using Brotli
-[String Count]          (ULEB128)
+[Bundle Settings]    (Variable)
+[String Pool]        (STRING[])
+[TOC Pos]            (ULEB128)
 
-  [String]              (String)  -- Future string writes will write a packed index instead of the actual string itself
+-- Assets
+[Asset Metadata]     (Variable) -- Only serialised if any
+[File Bytes]         (BYTE[])   -- Only serialised if any
+-- Repeats per asset
 
-[Master TOC Pos]        (INT64)
-
-[Asset Settings]        (Variable)
-
-  -- Asset Groups (Chunked by asset type)
-  [Asset Group TOC Pos] (INT64)
-
-    -- Assets
-    [Asset Metadata]    (Variable)
-    [File Bytes]        (Byte[])  -- Only serialised if any; ULEB128 prefixed
-    -- Repeats per asset
-
-  -- Asset Group Table of Contents
-  [Asset Count]         (ULEB128)
-
-    -- Asset Entry
-    [Path]              (ULEB128)
-    [File Name]         (ULEB128)
-    [File Extension]    (SLEB128) -- Refers to the index in the Master TOC's file extension array, -1 for no extension
-    [Asset Pos]         (INT64)
-    -- Repeats per asset
-
-  -- Repeats per asset type group
-
--- Master Table of Contents
-[Type Count]            (ULEB128)
-
+-- Table of Contents
+[Type Count]         (ULEB128)
   -- Group Entry
-  [Type ID]             (ULEB128) -- Enum
-  [Group Pos]           (INT64)
+  [Type ID]          (ULEB128)  -- Enum
+  [Asset Count]      (ULEB128)
+    -- Asset Entry
+    [Path]           (ULEB128)
+    [File Name]      (ULEB128)
+    [File Extension] (ULEB128)
+    [Asset Offset]   (ULEB128)
+    -- Repeats per asset
   -- Repeats per asset type
 
 -- Footer
-["BAPX"]                (String)  -- Prefix-less ASCII
-[Checksum]              (Byte[])  -- Prefix-less SHA-256
+["BAPX"]             (STRING)   -- Prefix-less ASCII
+[Checksum]           (BYTE[])   -- Prefix-less SHA-256
 ```
 
-The file will be little endian.
+The file will be little endian. All arrays are prefixed by a ULEB128 length prefix.
 
 ---
 
@@ -222,6 +211,7 @@ The file will be little endian.
 - [x] Add checksum behaviour
   - [x] Serialise the checksum
   - [x] Check and compare on read
+- [x] Create and handle settings
 - [ ] Finalise binary
 - [ ] Test
 - [ ] Update README with actual numbers from tests

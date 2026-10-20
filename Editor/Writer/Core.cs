@@ -10,6 +10,8 @@ internal sealed partial class XPABWriter(Stream output, Encoding encoding, bool 
         set => BaseStream.Position = value;
     }
 
+    public long Length => BaseStream.Length;
+
     public XPABWriter(Stream output)
         : this(output, Encoding.UTF8, false)
     {

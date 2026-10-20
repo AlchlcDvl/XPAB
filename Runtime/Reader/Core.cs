@@ -111,7 +111,16 @@ internal sealed partial class XPABReader(Stream output, Encoding encoding, bool 
         return (short)((val >> 1) ^ -(val & 1));
     }
 
-    public byte[] ReadBytesAndSize() => ReadBytes((int)ReadPackedUInt32());
+    public byte[] ReadBytesAndSize()
+    {
+        var count = (int)ReadPackedUInt32();
+        var bytes = ReadBytes(count);
+
+        if (bytes.Length != count)
+            throw new EndOfStreamException($"Expected {count} bytes, but only read {bytes.Length}.");
+
+        return bytes;
+    }
 
     public T[] ReadArray<T>(int count, Func<XPABReader, T> readAction)
     {
@@ -133,7 +142,7 @@ internal sealed partial class XPABReader(Stream output, Encoding encoding, bool 
         while (remaining > 0)
         {
             var bytesToRead = (int)Math.Min(buffer.Length, remaining);
-            var bytesRead = BaseStream.Read(buffer, 0, bytesToRead);
+            var bytesRead = Read(buffer, 0, bytesToRead);
 
             if (bytesRead == 0)
                 throw new EndOfStreamException("Reached the end of the stream before reading the requested amount.");

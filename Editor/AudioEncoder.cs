@@ -27,6 +27,8 @@ internal static class AudioEncoder
         comments.AddTag("ENCODER", "XPAB Toolchain");
 
         oggStream.PacketIn(HeaderPacketBuilder.BuildInfoPacket(info));
+        FlushOggPages(oggStream, dataStream, true);
+
         oggStream.PacketIn(HeaderPacketBuilder.BuildCommentsPacket(comments));
         oggStream.PacketIn(HeaderPacketBuilder.BuildBooksPacket(info));
         FlushOggPages(oggStream, dataStream, true);
@@ -60,7 +62,7 @@ internal static class AudioEncoder
         for (var i = 0; i < audioData.Length; i++)
             pcm[i] = (short)(Math.Clamp(audioData[i], -1f, 1f) * 32767f);
 
-        using var writer = new BinaryWriter(dataStream, System.Text.Encoding.UTF8, true);
+        using var writer = new XPABWriter(dataStream, true);
 
         for (var ch = 0; ch < channels; ch++)
         {

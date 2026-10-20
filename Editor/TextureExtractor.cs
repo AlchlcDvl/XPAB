@@ -8,17 +8,22 @@ internal static class TextureExtractor
             return asset.GetRawTextureData();
 
         var path = AssetDatabase.GetAssetPath(asset);
-        var importer = AssetImporter.GetAtPath(path) as TextureImporter ?? throw new InvalidOperationException($"Could not extract raw data for {asset.name}. Ensure it is a valid texture asset.");
+        var importer = AssetImporter.GetAtPath(path) as TextureImporter
+            ?? throw new InvalidOperationException($"Could not extract raw data for {asset.name}. Ensure it is a valid texture asset.");
 
-        importer.isReadable = true;
-        importer.SaveAndReimport();
+        try
+        {
+            importer.isReadable = true;
+            importer.SaveAndReimport();
 
-        var rawData = asset.GetRawTextureData();
-
-        importer.isReadable = false;
-        importer.SaveAndReimport();
-
-        return rawData;
+            var reloadedAsset = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            return reloadedAsset.GetRawTextureData();
+        }
+        finally
+        {
+            importer.isReadable = false;
+            importer.SaveAndReimport();
+        }
     }
 
     public static byte[] ExtractViaBlit(Texture2D asset, Texture2DCompressionMethod method)

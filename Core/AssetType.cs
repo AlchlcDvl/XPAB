@@ -39,9 +39,9 @@ public enum AssetType : byte
     /// <summary><see cref="UnityEngine.AnimationClip"/>.</summary>
     AnimationClip,
 
-    /// <summary><see cref="ScriptableObject"/>.</summary>
+    /// <summary><see cref="UnityEngine.ScriptableObject"/>.</summary>
     DataConfig,
 
-    /// <summary><see cref="GameObject"/>.</summary>
+    /// <summary><see cref="UnityEngine.GameObject"/>.</summary>
     Prefab,
 }

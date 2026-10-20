@@ -1,4 +1,3 @@
-using System.Text;
 using NVorbis;
 
 namespace XPAB.Reader;
@@ -14,7 +13,7 @@ internal static class AudioDecoder
     public static void DecodeAdpcm(Stream dataStream, float[] audioData, int channels)
     {
         var pcm = new short[audioData.Length];
-        using var reader = new BinaryReader(dataStream, Encoding.UTF8, true);
+        using var reader = new XPABReader(dataStream, true);
 
         for (var ch = 0; ch < channels; ch++)
         {
@@ -67,7 +66,7 @@ internal static class AudioDecoder
         }
 
         for (var i = 0; i < pcm.Length; i++)
-            audioData[i] = pcm[i] / 32767f;
+            audioData[i] = Math.Clamp(pcm[i] / (pcm[i] < 0 ? 32768f : 32767f), -1f, 1f);
     }
 
     public static void DequantizeAudio(float[] audioData, AudioBitDepth bitDepth, XPABReader fileReader)

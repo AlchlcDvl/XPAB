@@ -11,7 +11,9 @@ public sealed class BinaryAsset : ScriptableObject, IDisposable
     /// <summary>The path of the binary file.</summary>
     [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Unity field.")]
     [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "Read above.")]
-    [NonSerialized]
+#if UNITY_EDITOR
+    [Tooltip("The path of the binary file.")]
+#endif
     public string file;
 
 #if !UNITY_EDITOR

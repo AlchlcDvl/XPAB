@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using XPAB.Internal;
@@ -13,6 +14,7 @@ namespace XPAB;
 /// <summary>An asset bundle made to be cross-platform.</summary>
 public sealed class XPAssetBundle : IDisposable
 {
+    private readonly List<IDisposable> disposableAssets = [];
     private readonly Dictionary<(Type Type, string Path), UObject> loadedAssets = [];
 
     private bool shouldUnloadAssets;
@@ -20,6 +22,7 @@ public sealed class XPAssetBundle : IDisposable
     private XPABReader reader;
     private bool bundleExists;
     private string name;
+    private XPABConfig config;
 
     private static readonly HashSet<Type> BundledTypes = [typeof(Shader)];
 
@@ -28,6 +31,7 @@ public sealed class XPAssetBundle : IDisposable
     }
 
     /// <summary>Finalizes an instance of the <see cref="XPAssetBundle"/> class.</summary>
+    /// <remarks>This should NOT be invoked!</remarks>
     ~XPAssetBundle() => Dispose(false);
 
     /// <summary>Loads an asset with the specified path.</summary>
@@ -36,16 +40,44 @@ public sealed class XPAssetBundle : IDisposable
     /// <returns>The loaded asset.</returns>
     public T LoadAsset<T>(string name)
         where T : UObject
-        => (T)loadedAssets.GetOrAdd((typeof(T), name), LoadInternal);
+        => (T)LoadAssetInternal(name, typeof(T));
+
+    /// <summary>Loads an asset with the specified path.</summary>
+    /// <param name="name">The name, or path, of the asset. Extension can be excluded.</param>
+    /// <param name="typeName">The name of the type of the asset. Must be one of the following formats: "Type", "Namespace.Type", "Namespace.Type, Assembly" or the fully qualified name.</param>
+    /// <returns>The loaded asset.</returns>
+    public UObject LoadAsset(string name, string? typeName)
+        => LoadAsset(name, Type.GetType(typeName));
+
+    /// <summary>Loads an asset with the specified path.</summary>
+    /// <param name="name">The name, or path, of the asset. Extension can be excluded.</param>
+    /// <param name="type">The type of the asset.</param>
+    /// <returns>The loaded asset.</returns>
+    public UObject LoadAsset(string name, Type? type)
+    {
+        if (type == null)
+            throw new ArgumentNullException(nameof(type));
+
+        if (!typeof(UObject).IsAssignableFrom(type))
+            throw new ArgumentException("Received an invalid type, must inherit from UnityEngine.Object.", nameof(type));
+
+        return LoadAssetInternal(name, type);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private UObject LoadAssetInternal(string name, Type type)
+        => loadedAssets.GetOrAdd((type, name), LoadInternal);
 
     private UObject LoadInternal((Type Type, string Name) assetParams)
     {
         if (bundleExists && BundledTypes.Contains(assetParams.Type))
         {
+            return bundle.LoadAsset(
+                assetParams.Name,
 #if IL2CPP
-            return bundle.LoadAsset(assetParams.Name, Il2CppType.From(assetParams.Type));
+                Il2CppType.From(assetParams.Type));
 #else
-            return bundle.LoadAsset(assetParams.Name, assetParams.Type);
+                assetParams.Type);
 #endif
         }
 
@@ -151,8 +183,10 @@ public sealed class XPAssetBundle : IDisposable
                             File.Delete(file);
                     }
 
-                    using var fs = File.Create(bundlePath);
+                    var temp = bundlePath + ".tmp";
+                    using var fs = File.Create(temp);
                     reader.ReadToStream(fs, embeddedLength);
+                    File.Move(temp, bundlePath);
                 }
                 else
                 {
@@ -173,6 +207,16 @@ public sealed class XPAssetBundle : IDisposable
             }
         }
 
+        config = ScriptableObject.CreateInstance<XPABConfig>();
+
+        config.compressionMethod = reader.ReadPackedEnum<Texture2DCompressionMethod>();
+
+        config.audioSettings = new()
+        {
+            bitDepth = reader.ReadPackedEnum<AudioBitDepth>(),
+            compressionMethod = reader.ReadPackedEnum<AudioCompressionMethod>(),
+        };
+
         // TODO: String Pool, Master TOC and Asset Groups
     }
 
@@ -184,6 +228,11 @@ public sealed class XPAssetBundle : IDisposable
 
             if (bundleExists && bundle)
                 bundle.Unload(shouldUnloadAssets);
+
+            foreach (var disposable in disposableAssets)
+                disposable.Dispose();
+
+            disposableAssets.Clear();
 
             // TODO: Unload non-bundled assets
         }
@@ -265,7 +314,7 @@ public sealed class XPAssetBundle : IDisposable
         }
         catch
         {
-            bundle.reader?.Dispose();
+            bundle.Dispose();
             throw;
         }
     }

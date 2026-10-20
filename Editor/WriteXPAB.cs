@@ -8,8 +8,7 @@ namespace XPAB;
 /// <summary>A utility class that writes an XPAB file.</summary>
 public static class WriteXPAB
 {
-    private const BuildAssetBundleOptions ABConfigs = BuildAssetBundleOptions.ChunkBasedCompression |
-                                                      BuildAssetBundleOptions.DisableWriteTypeTree |
+    private const BuildAssetBundleOptions ABConfigs = BuildAssetBundleOptions.DisableWriteTypeTree |
                                                       BuildAssetBundleOptions.DisableLoadAssetByFileName |
                                                       BuildAssetBundleOptions.DisableLoadAssetByFileNameWithExtension |
                                                       BuildAssetBundleOptions.ForceRebuildAssetBundle |
@@ -36,10 +35,15 @@ public static class WriteXPAB
             return;
         }
 
-        foreach (var config in configs)
-            CreateBundle(config);
-
-        AssetDatabase.Refresh();
+        try
+        {
+            foreach (var config in configs)
+                CreateBundle(config);
+        }
+        finally
+        {
+            AssetDatabase.Refresh();
+        }
     }
 
     /// <summary>Creates an XPAB bundle it in the output path.</summary>
@@ -59,6 +63,10 @@ public static class WriteXPAB
         }
 
         var sanitizedName = string.Join("_", config.fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+
+        if (string.IsNullOrEmpty(sanitizedName))
+            throw new ArgumentException("Received a config file name that was either empty or contained only invalid file path characters.");
+
         var temp = Path.Combine(TempPath, $"temp_{sanitizedName}");
         var filePath = Path.Combine(dirPath, $"{sanitizedName}.xpab");
 
@@ -87,11 +95,12 @@ public static class WriteXPAB
                 Debug.LogWarning($"Bundle platform targets for {sanitizedName} were defined, but no platform-dependent assets were assigned. Asset bundle building will be skipped.");
 
             var bundles = new Dictionary<TargetPlatform, string>();
+            var bundleOptions = ABConfigs | config.bundleCompression.GetCompression();
 
             if (hasBundles)
             {
                 foreach (var target in activeTargets)
-                    BuildTempAssetBundle(temp, sanitizedName, bundleAssets, target, bundles);
+                    BuildTempAssetBundle(temp, sanitizedName, bundleAssets, target, bundles, bundleOptions);
             }
 
             using var file = File.Create(filePath);
@@ -117,6 +126,11 @@ public static class WriteXPAB
                 writer.WritePacked(0u);
             }
 
+            writer.WritePackedEnum(config.compressionMethod);
+
+            writer.WritePackedEnum(config.audioSettings.bitDepth);
+            writer.WritePackedEnum(config.audioSettings.compressionMethod);
+
             // TODO: String Pool, Assets and Master TOC
 
             writer.Write(Encoding.ASCII.GetBytes(Constants.Footer));
@@ -133,7 +147,7 @@ public static class WriteXPAB
         }
     }
 
-    private static void BuildTempAssetBundle(string outputDir, string name, string[] assetPaths, TargetPlatform target, Dictionary<TargetPlatform, string> bundles)
+    private static void BuildTempAssetBundle(string outputDir, string name, string[] assetPaths, TargetPlatform target, Dictionary<TargetPlatform, string> bundles, BuildAssetBundleOptions options)
     {
         var sf = target.GetShortForm();
         var dir = Path.Combine(outputDir, sf);
@@ -144,7 +158,7 @@ public static class WriteXPAB
         };
         PrepDirectory(dir);
 
-        var manifest = BuildPipeline.BuildAssetBundles(dir, [buildMap], ABConfigs, target.GetBuildTarget());
+        var manifest = BuildPipeline.BuildAssetBundles(dir, [buildMap], options, target.GetBuildTarget());
         var filePath = Path.Combine(dir, buildMap.assetBundleName);
 
         if (manifest == null || !File.Exists(filePath))

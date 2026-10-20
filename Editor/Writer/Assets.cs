@@ -62,24 +62,25 @@ internal partial class XPABWriter
         WriteStreamAndLength(dataStream);
     }
 
-    public void WriteTexture2D(Texture2D asset, Texture2DSerialisationSettings settings)
+    public void WriteTexture2D(Texture2D asset, Texture2DCompressionMethod method)
     {
+        var isEncoded = method is Texture2DCompressionMethod.PNG or Texture2DCompressionMethod.JPG;
+
         WritePacked((uint)asset.width);
         WritePacked((uint)asset.height);
-        WritePackedEnum(asset.format);
+        WritePackedEnum(isEncoded ? TextureFormat.RGBA32 : asset.format);
         WritePacked((uint)asset.mipmapCount);
 
         WritePackedEnum(asset.filterMode);
         WritePackedEnum(asset.wrapModeU);
         WritePackedEnum(asset.wrapModeV);
         WritePackedEnum(asset.wrapModeW);
-        WritePackedEnum(asset.wrapMode);
         WritePacked(asset.anisoLevel);
         Write(asset.isDataSRGB);
         Write(asset.isReadable);
 
-        var textureData = settings.compressionMethod is Texture2DCompressionMethod.PNG or Texture2DCompressionMethod.JPG
-            ? TextureExtractor.ExtractViaBlit(asset, settings.compressionMethod)
+        var textureData = isEncoded
+            ? TextureExtractor.ExtractViaBlit(asset, method)
             : TextureExtractor.ExtractRawTextureData(asset);
 
         using var dataStream = new MemoryStream();
@@ -87,11 +88,10 @@ internal partial class XPABWriter
 
         try
         {
-            if (settings.compressionMethod == Texture2DCompressionMethod.Brotli)
+            if (method == Texture2DCompressionMethod.Brotli)
                 targetStream = new BrotliStream(dataStream, CompressionLevel.Optimal, true);
 
-            using var fileWriter = new XPABWriter(targetStream, true);
-            fileWriter.WriteBytesAndSize(textureData);
+            targetStream.Write(textureData, 0, textureData.Length);
         }
         finally
         {
