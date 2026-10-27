@@ -18,22 +18,22 @@
   <ItemGroup>
     <Compile Include="../Core/**/*.cs" />
 
-    <Reference Include="../Game/*.dll" Private="false" />
+    <Reference Include="../Libs/Game/*.dll" Private="false" />
 
-    <Reference Condition="'$(CompileTarget)' == 'Mono'" Include="../UnityMono/*.dll" Private="false" />
-    <Reference Condition="'$(CompileTarget)' == 'Il2Cpp'" Include="../UnityIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(CompileTarget)' == 'Mono'" Include="../Libs/UnityMono/*.dll" Private="false" />
+    <Reference Condition="'$(CompileTarget)' == 'Il2Cpp'" Include="../Libs/UnityIl2Cpp/*.dll" Private="false" />
 
-    <Reference Condition="'$(ModLoader)' == 'BepInEx'" Include="../BepInEx/*.dll" Private="false" />
-    <Reference Condition="'$(ModLoader)' == 'MelonLoader'" Include="../MelonLoader/*.dll" Private="false" />
-    <Reference Condition="'$(ModLoader)' == 'Custom'" Include="../CustomLoader/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'BepInEx'" Include="../Libs/BepInEx/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'MelonLoader'" Include="../Libs/MelonLoader/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'Custom'" Include="../Libs/CustomLoader/*.dll" Private="false" />
 
-    <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Il2Cpp'" Include="../BepIl2Cpp/*.dll" Private="false" />
-    <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Il2Cpp'" Include="../MelonIl2Cpp/*.dll" Private="false" />
-    <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Il2Cpp'" Include="../CustomIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Il2Cpp'" Include="../Libs/BepIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Il2Cpp'" Include="../Libs/MelonIl2Cpp/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Il2Cpp'" Include="../Libs/CustomIl2Cpp/*.dll" Private="false" />
 
-    <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Mono'" Include="../BepMono/*.dll" Private="false" />
-    <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Mono'" Include="../MelonMono/*.dll" Private="false" />
-    <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Mono'" Include="../CustomMono/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'BepInEx' and '$(CompileTarget)' == 'Mono'" Include="../Libs/BepMono/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Mono'" Include="../Libs/MelonMono/*.dll" Private="false" />
+    <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Mono'" Include="../Libs/CustomMono/*.dll" Private="false" />
 
     <PackageReference Include="NVorbis" Version="*-*" />
   </ItemGroup>

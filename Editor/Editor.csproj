@@ -7,8 +7,8 @@
   <ItemGroup>
     <Compile Include="../Core/**/*.cs" />
 
-    <Reference Include="../UnityMono/*.dll" Private="false" />
-    <Reference Include="../UnityEditor/*.dll" Private="false" />
+    <Reference Include="../Libs/UnityMono/*.dll" Private="false" />
+    <Reference Include="../Libs/UnityEditor/*.dll" Private="false" />
 
     <PackageReference Include="OggVorbisEncoder" Version="*-*" />
   </ItemGroup>

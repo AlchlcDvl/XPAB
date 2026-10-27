@@ -3,15 +3,8 @@
 */packages.lock.json
 .idea/
 .vs*/
-Unity*/
-Unity*
 artifacts/
-BepInEx*/
-BepInEx*
-MelonLoader*/
-MelonLoader*
-CustomLoader*/
-CustomLoader*
+Libs/
 Game/
 Game
 Runtime/XPABCore.Custom.cs

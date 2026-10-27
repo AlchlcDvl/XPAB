@@ -82,10 +82,10 @@ public static class WriteXPAB
 
             config.GetAllAssetPaths();
 
-            IAssetEntry[] bundleAssets = [.. config.shaders];
+            var bundleAssets = new List<IAssetEntry>(config.shaders);
 
             if (config.imageSettings.encoding == Texture2DEncoding.Native)
-                bundleAssets = [.. bundleAssets, .. config.textures];
+                bundleAssets.AddRange(config.textures);
 
             var bundlePaths = bundleAssets
                 .Select(x => x.AssetPath)
@@ -101,10 +101,11 @@ public static class WriteXPAB
                 XPABLogger.Warning($"Bundle platform targets for {sanitisedName} were defined, but no platform-dependent assets were assigned. Asset bundle building will be skipped.");
 
             var bundles = new Dictionary<TargetPlatform, string>();
-            var bundleOptions = ABConfigs | config.bundleCompression.GetCompression();
 
             if (hasBundles)
             {
+                var bundleOptions = ABConfigs | config.bundleCompression.GetCompression();
+
                 foreach (var target in activeTargets)
                     BuildTempAssetBundle(temp, sanitisedName, bundlePaths, target, bundles, bundleOptions);
             }

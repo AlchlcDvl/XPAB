@@ -2,6 +2,8 @@
 
 `xpab` is a cross-platform asset bundle format for Unity modding in C#.
 
+---
+
 ### The Problem
 
 Unity's native asset bundle system is inherently flawed for modding: if a game exists on multiple platforms (Windows, Mac, Linux, Android, etc), mod sizes bloat massively in an attempt to maintain compatibility because assets must be duplicated and compiled for each specific target.
@@ -55,7 +57,7 @@ The project has two build properties to make use of when compiling the project.
 - `ModLoader`: Choose between `None` (standalone, useful for if you want to load it yourself), `BepInEx`, `MelonLoader` and `Custom` (for non-conventional mod loaders, you must write the initialisation logic yourself for this target in a gitignored `XPABCore.Custom.cs` file). This lets the asset reader be loaded either manually, or by the mod loader it's compiled against.
 - `CompileTarget`: Choose between `Mono` and `Il2Cpp` when compiling the project. This corresponds to the scripting backends of Unity with the same name. There are key differences between the two, so it's important that asset creation match the backend exactly lest you feel the wrath of the engine.
 
-When building the project, either set the values in the `csproj` like this: `<PropertyName>Value</PropertyName>`\
+When building the project, either set the values in a `props` file like this: `<PropertyName>Value</PropertyName>`\
 Or pass them into the build command like this: `/p:PropertyName=Value`
 
 > Note: Unity 6.7+ ships with CoreCLR and has begun deprecating Mono, and most mod loaders already do so as well. The `Mono` compile target still works since CoreCLR is just an upgraded version of it.
@@ -67,13 +69,36 @@ You need the following for the project to be usable:
 - A game made using that same version
 - .NET 10+ SDK (since the project uses syntax from newer versions of C#)
 
-### DLL References
+### Automated Dependency Setup
 
-Here are the libraries you need to extract and place into their respective folders:
+To bypass manually extracting and organizing DLLs, use the included Python script to automatically pull and route the correct dependencies from your game and editor installations into the `Libs` directory.
+
+Requirements:
+- Python 3.x
+- (Windows) Enable **Developer Mode** in system settings or run your terminal as an Administrator. This allows the script to create symlinks rather than duplicating files.
+
+#### Execution
+Run the setup script from the root of the project:
+```bash
+python setup.py
+```
+
+The command-line wizard will prompt you for:
+1. The game directory path.
+2. The Unity Editor directory path (e.g., `C:/Program Files/Unity/Hub/Editor/2022.3.0f1`).
+3. The target Mod Loader (`BepInEx`, `MelonLoader`, or `None`). Choose `None` if the mod loader is a custom one that's not MelonLoader or BepInEx.
+4. The scripting backend architecture (`Mono` or `Il2Cpp`).
+
+#### Behavior
+The script will dynamically create the `Libs` folder structure and locate the specific files based on your architecture and mod loader choices. It attempts to create symlinks or shortcuts for all required DLLs (and companion `.xml` documentation files) to minimize disk space usage and automatically sync with future game or mod loader updates. If your operating system permissions reject the symlink creation, the script will automatically fall back to directly copying the files.
+
+### Manual DLL Extraction (Fallback)
+
+Here are the libraries you need to extract and place into their respective folders in a gitignored `Libs` folder in the root directory:
 
 `UnityEditor` (Found in: `[Editor Installation]/Editor/Data/Managed/`):
 - `UnityEditor.dll`
-- `UnityEditor.CoreModule.dll` (only if some methods are missing)
+- `UnityEngine.IMGUIModule.dll`
 
 `UnityMono` (Found in: `[Game Installation]/[GameName]_Data/Managed/`):
 - `UnityEngine.dll`
@@ -88,6 +113,8 @@ Here are the libraries you need to extract and place into their respective folde
 
 `UnityIl2Cpp` (Found in: `[Game Installation]/BepInEx/interop/`, `[Game Installation]/BepInEx/core/` or `[Game Installation]/MelonLoader/Il2CppAssemblies/`)
 - All the `UnityEngine.*` and `Unity.*` DLLs listed in the Mono section above.
+
+`Il2Cpp` (Found in: `[Game Installation]/BepInEx/interop/`, `[Game Installation]/BepInEx/core/` or `[Game Installation]/MelonLoader/Il2CppAssemblies/`)
 - `Il2CppInterop.Runtime.dll`
 - `Il2Cppmscorlib.dll`
 
@@ -97,14 +124,18 @@ Here are the libraries you need to extract and place into their respective folde
 `BepInEx` (Found in: `[Game Installation]/BepInEx/core/`)
 - `BepInEx.Core.dll`
 - `BepInEx.Unity.Common.dll`
-- `BepInEx.Unity.IL2CPP.dll` (for Il2Cpp games)
-- `BepInEx.Unity.Mono.dll` (for Mono games)
+
+`BepIl2Cpp` (for Il2Cpp games)
+- `BepInEx.Unity.IL2CPP.dll`
+
+`BepMono` (for Mono games)
+- `BepInEx.Unity.Mono.dll`
 
 For the `Custom` loader configuration, navigate to the relevant folders and copy the minimum required dlls into the `CustomLoader` folder.
 
-For Il2Cpp or Mono specific dlls for the mod loader, they can be dropped into the `[Bep/Melon/Custom][Il2Cpp/Mono]` folder (also gitignored).
+For Il2Cpp or Mono specific dlls for the mod loader, they can be dropped into the `[Bep/Melon/Custom][Il2Cpp/Mono]` folder.
 
-For any game-specific dlls, you can drop them into the gitignored `Game` folder. Any code relating to it can also be in `Runtime` project's subfolder with the same name.
+For any game-specific dlls, you can drop them into the `Game` folder. Any code relating to it can also be in `Runtime` project's subfolder (also gitignored) with the same name.
 
 Forewarning: Only copy over the minimum required dlls (above mentioned + any few extra dlls that the build process might require) to ensure an optimal development experience. Adding extra only serves to bloat your project for no added benefit.
 
@@ -221,7 +252,7 @@ The file will be little endian. All arrays are prefixed by a ULEB128 length pref
 | `TextAsset`                       | ✅           | ✅             |
 | `BinaryAsset`                     | ✅           | ✅             |
 | `AudioClip`                       | ✅           | ✅             |
-| `Texture2D`                       | ✅           | ✅             |
+| `Texture2D`                       | 🚧           | 🚧             |
 | `Shader`                          | 🚧           | ❌             |
 | `Mesh`                            | ❌           | ❌             |
 | `VideoClip`                       | ❌           | ❌             |
