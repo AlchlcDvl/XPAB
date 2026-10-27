@@ -43,7 +43,7 @@ public sealed class XPAssetBundle : IDisposable
         => (T)LoadAssetInternal(name, typeof(T));
 
     /// <summary>Loads an asset with the specified path.</summary>
-    /// <param name="name">The name, or path, of the asset. Extension can be excluded.</param>
+    /// <param name="name">The name, or path, of the asset. The extension can be excluded.</param>
     /// <param name="typeName">The name of the type of the asset. Must be one of the following formats: "Type", "Namespace.Type", "Namespace.Type, Assembly" or the fully qualified name.</param>
     /// <returns>The loaded asset.</returns>
     public UObject LoadAsset(string name, string? typeName)
@@ -208,14 +208,7 @@ public sealed class XPAssetBundle : IDisposable
         }
 
         config = ScriptableObject.CreateInstance<XPABConfig>();
-
-        config.compressionMethod = reader.ReadPackedEnum<Texture2DCompressionMethod>();
-
-        config.audioSettings = new()
-        {
-            bitDepth = reader.ReadPackedEnum<AudioBitDepth>(),
-            compressionMethod = reader.ReadPackedEnum<AudioCompressionMethod>(),
-        };
+        config.ReadAllSettings(reader);
 
         // TODO: String Pool, Master TOC and Asset Groups
     }
@@ -252,41 +245,30 @@ public sealed class XPAssetBundle : IDisposable
         GC.SuppressFinalize(this);
     }
 
+#pragma warning disable CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
+    /// <inheritdoc cref="LoadFromStream"/>
     /// <summary>Loads an XPAB file from a file path.</summary>
     /// <param name="path">The file path to the XPAB bundle.</param>
-    /// <param name="unloadAssetsOnDispose">An optional flag to decide whether the already loaded assets need to be unloaded when the <see cref="XPAssetBundle"/> instance is disposed.</param>
-    /// <returns>The loaded XPAB file.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if the provided path is null.</exception>
     /// <exception cref="FileNotFoundException">Thrown if the file cannot be found on disk.</exception>
-    /// <exception cref="InvalidDataException">Thrown if the stream contained malformed data.</exception>
     public static XPAssetBundle LoadFromFile(string path, bool unloadAssetsOnDispose = false)
         => LoadFromStream(File.OpenRead(path), unloadAssetsOnDispose);
 
+    /// <inheritdoc cref="LoadFromStream"/>
     /// <summary>Loads an XPAB file from an embedded resource in the calling assembly.</summary>
     /// <param name="path">The exact manifest resource name of the embedded XPAB file.</param>
-    /// <param name="unloadAssetsOnDispose">An optional flag to decide whether the already loaded assets need to be unloaded when the <see cref="XPAssetBundle"/> instance is disposed.</param>
-    /// <returns>The loaded XPAB file.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if the provided path is null, or if the embedded resource cannot be found.</exception>
-    /// <exception cref="InvalidDataException">Thrown if the stream contained malformed data.</exception>
     public static XPAssetBundle LoadFromAssembly(string path, bool unloadAssetsOnDispose = false)
         => LoadFromAssembly(path, Assembly.GetCallingAssembly(), unloadAssetsOnDispose);
 
+    /// <inheritdoc cref="LoadFromStream"/>
     /// <summary>Loads an XPAB file from an embedded resource in a specific assembly.</summary>
     /// <param name="path">The exact manifest resource name of the embedded XPAB file.</param>
     /// <param name="assembly">The assembly containing the embedded resource.</param>
-    /// <param name="unloadAssetsOnDispose">An optional flag to decide whether the already loaded assets need to be unloaded when the <see cref="XPAssetBundle"/> instance is disposed.</param>
-    /// <returns>The loaded XPAB file.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if the provided path or assembly is null, or if the embedded resource cannot be found.</exception>
-    /// <exception cref="InvalidDataException">Thrown if the stream contained malformed data.</exception>
     public static XPAssetBundle LoadFromAssembly(string path, Assembly? assembly, bool unloadAssetsOnDispose = false)
         => LoadFromStream(assembly?.GetManifestResourceStream(path), unloadAssetsOnDispose);
 
+    /// <inheritdoc cref="LoadFromStream"/>
     /// <summary>Loads an XPAB file from a byte array.</summary>
     /// <param name="bytes">The byte array containing the XPAB file data.</param>
-    /// <param name="unloadAssetsOnDispose">An optional flag to decide whether the already loaded assets need to be unloaded when the <see cref="XPAssetBundle"/> instance is disposed.</param>
-    /// <returns>The loaded XPAB file.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if the provided byte array is null.</exception>
-    /// <exception cref="InvalidDataException">Thrown if the stream contained malformed data.</exception>
     public static XPAssetBundle LoadFromMemory(byte[] bytes, bool unloadAssetsOnDispose = false)
         => LoadFromStream(new MemoryStream(bytes), unloadAssetsOnDispose);
 
@@ -318,4 +300,5 @@ public sealed class XPAssetBundle : IDisposable
             throw;
         }
     }
+#pragma warning restore CS1573 // Parameter has no matching param tag in the XML comment (but other parameters do)
 }

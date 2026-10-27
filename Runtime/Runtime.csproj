@@ -35,7 +35,7 @@
     <Reference Condition="'$(ModLoader)' == 'MelonLoader' and '$(CompileTarget)' == 'Mono'" Include="../MelonMono/*.dll" Private="false" />
     <Reference Condition="'$(ModLoader)' == 'Custom' and '$(CompileTarget)' == 'Mono'" Include="../CustomMono/*.dll" Private="false" />
 
-    <PackageReference Include="NVorbis" Version="1.0.0-rc.2" />
+    <PackageReference Include="NVorbis" Version="*-*" />
   </ItemGroup>
 
   <Target Name="ILRepack" AfterTargets="Build">

@@ -151,7 +151,7 @@ After that, the ball is in your court.
 
 ## The Binary Format
 
-Currently, this is the planned binary format of the `xpab` file. Feel free to suggest improvements until it is finalized:
+Currently, this is the planned binary format of the `xpab` file. Feel free to suggest improvements until it is finalised:
 
 ```text
 -- Header
@@ -164,12 +164,12 @@ Currently, this is the planned binary format of the `xpab` file. Feel free to su
   [File Bytes]       (BYTE[])
   -- Repeats per platform target
 
-[Bundle Settings]    (Variable)
+[Global Settings]    (Variable)
 [String Pool]        (STRING[])
 [TOC Pos]            (ULEB128)
 
 -- Assets
-[Asset Metadata]     (Variable) -- Only serialised if any
+[Asset Metadata]     (Variable) -- Only serialised if any, includes individual asset settings
 [File Bytes]         (BYTE[])   -- Only serialised if any
 -- Repeats per asset
 

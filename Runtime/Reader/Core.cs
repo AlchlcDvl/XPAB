@@ -2,7 +2,7 @@ using System.Text;
 
 namespace XPAB.Reader;
 
-internal sealed partial class XPABReader(Stream output, Encoding encoding, bool leaveOpen) : BinaryReader(output, encoding, leaveOpen)
+public sealed partial class XPABReader(Stream output, Encoding encoding, bool leaveOpen) : BinaryReader(output, encoding, leaveOpen)
 {
     public long Position
     {

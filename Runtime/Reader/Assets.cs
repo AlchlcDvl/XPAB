@@ -4,7 +4,7 @@ using XPAB.Assets;
 
 namespace XPAB.Reader;
 
-internal partial class XPABReader
+public partial class XPABReader
 {
     public TextAsset ReadTextAsset(string name)
     {
@@ -116,7 +116,7 @@ internal partial class XPABReader
         {
             using var brotli = new BrotliStream(BaseStream, CompressionMode.Decompress, true);
             using var ms = new MemoryStream();
-            brotli.CopyTo(ms);
+            brotli.CopyTo(ms, (int)payloadLength);
             textureData = ms.ToArray();
         }
         else

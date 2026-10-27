@@ -10,7 +10,7 @@
     <Reference Include="../UnityMono/*.dll" Private="false" />
     <Reference Include="../UnityEditor/*.dll" Private="false" />
 
-    <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
+    <PackageReference Include="OggVorbisEncoder" Version="*-*" />
   </ItemGroup>
 
   <Target Name="ILRepack" AfterTargets="Build">

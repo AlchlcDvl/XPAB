@@ -2,7 +2,7 @@ using System.Text;
 
 namespace XPAB.Writer;
 
-internal sealed partial class XPABWriter(Stream output, Encoding encoding, bool leaveOpen) : BinaryWriter(output, encoding, leaveOpen)
+public sealed partial class XPABWriter(Stream output, Encoding encoding, bool leaveOpen) : BinaryWriter(output, encoding, leaveOpen)
 {
     public long Position
     {

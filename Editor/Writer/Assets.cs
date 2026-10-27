@@ -1,19 +1,21 @@
 using System.IO.Compression;
 using XPAB.Assets;
+using XPAB.Settings;
 
 namespace XPAB.Writer;
 
-internal partial class XPABWriter
+public partial class XPABWriter
 {
     public void WriteTextAsset(TextAsset asset) => WriteBytesAndSize(asset.bytes);
 
     public void WriteBinaryAsset(BinaryAsset asset) => WriteFile(asset.file);
 
-    public void WriteAudioClip(AudioClip asset, AudioSerialisationSettings settings)
+    public void WriteAudioClip(AudioClip asset, AudioClipSettings settings)
     {
         WritePacked(asset.samples);
         WritePacked(asset.channels);
         WritePacked(asset.frequency);
+        WritePackedEnum(asset.loadType);
 
         if (!asset.LoadAudioData())
             throw new InvalidOperationException("Received a malformed asset.");
@@ -79,6 +81,8 @@ internal partial class XPABWriter
         Write(asset.isDataSRGB);
         Write(asset.isReadable);
 
+        asset.EncodeToEXR();
+
         var textureData = isEncoded
             ? TextureExtractor.ExtractViaBlit(asset, method)
             : TextureExtractor.ExtractRawTextureData(asset);
@@ -91,7 +95,7 @@ internal partial class XPABWriter
             if (method == Texture2DCompressionMethod.Brotli)
                 targetStream = new BrotliStream(dataStream, CompressionLevel.Optimal, true);
 
-            targetStream.Write(textureData, 0, textureData.Length);
+            targetStream.Write(textureData);
         }
         finally
         {

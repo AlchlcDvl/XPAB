@@ -1,6 +1,8 @@
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
+using XPAB.Internal;
+using XPAB.Settings;
 using XPAB.Writer;
 
 namespace XPAB;
@@ -21,6 +23,8 @@ public static class WriteXPAB
     [MenuItem("XPAB/Build Bundles")]
     public static void BuildXPABBundles()
     {
+        XPABLogger.SetAll(Debug.Log, Debug.LogWarning, Debug.LogError);
+
         if (!Directory.Exists(OutputPath))
             Directory.CreateDirectory(OutputPath);
 
@@ -31,7 +35,7 @@ public static class WriteXPAB
 
         if (configs.Length == 0)
         {
-            Debug.LogError("There are no configs made to build the bundles.");
+            XPABLogger.Error("There are no configs made to build the bundles.");
             return;
         }
 
@@ -62,13 +66,13 @@ public static class WriteXPAB
             dirPath = OutputPath;
         }
 
-        var sanitizedName = string.Join("_", config.fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+        var sanitisedName = string.Join("_", config.fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
 
-        if (string.IsNullOrEmpty(sanitizedName))
+        if (string.IsNullOrEmpty(sanitisedName))
             throw new ArgumentException("Received a config file name that was either empty or contained only invalid file path characters.");
 
-        var temp = Path.Combine(TempPath, $"temp_{sanitizedName}");
-        var filePath = Path.Combine(dirPath, $"{sanitizedName}.xpab");
+        var temp = Path.Combine(TempPath, $"temp_{sanitisedName}");
+        var filePath = Path.Combine(dirPath, $"{sanitisedName}.xpab");
 
         try
         {
@@ -76,23 +80,25 @@ public static class WriteXPAB
 
             var activeTargets = config.targets?.Distinct()?.ToArray() ?? [];
 
-            var assets = (config.assetsToBundle ?? [])
-                .Where(obj => obj != null)
-                .Select(AssetDatabase.GetAssetPath)
+            config.GetAllAssetPaths();
+
+            IAssetEntry[] bundleAssets = [.. config.shaders];
+
+            if (config.imageSettings.encoding == Texture2DEncoding.Native)
+                bundleAssets = [.. bundleAssets, .. config.textures];
+
+            var bundlePaths = bundleAssets
+                .Select(x => x.AssetPath)
                 .Where(path => !string.IsNullOrEmpty(path))
-                .Distinct()
-                .ToLookup(OtherExtensions.ShouldBundleAsset);
+                .ToArray();
 
-            var bundleAssets = assets[true].ToArray();
-            var genericAssets = assets[false].ToArray();
+            var hasBundles = bundlePaths.Length > 0 && activeTargets.Length > 0;
 
-            var hasBundles = bundleAssets.Length > 0 && activeTargets.Length > 0;
+            if (bundlePaths.Length > 0 && activeTargets.Length == 0)
+                XPABLogger.Warning($"Bundle assets were assigned for {sanitisedName}, but no target platforms were configured. Asset bundle building will be skipped.");
 
-            if (bundleAssets.Length > 0 && activeTargets.Length == 0)
-                Debug.LogWarning($"Bundle assets were assigned for {sanitizedName}, but no target platforms were configured. Asset bundle building will be skipped.");
-
-            if (bundleAssets.Length == 0 && activeTargets.Length > 0)
-                Debug.LogWarning($"Bundle platform targets for {sanitizedName} were defined, but no platform-dependent assets were assigned. Asset bundle building will be skipped.");
+            if (bundlePaths.Length == 0 && activeTargets.Length > 0)
+                XPABLogger.Warning($"Bundle platform targets for {sanitisedName} were defined, but no platform-dependent assets were assigned. Asset bundle building will be skipped.");
 
             var bundles = new Dictionary<TargetPlatform, string>();
             var bundleOptions = ABConfigs | config.bundleCompression.GetCompression();
@@ -100,7 +106,7 @@ public static class WriteXPAB
             if (hasBundles)
             {
                 foreach (var target in activeTargets)
-                    BuildTempAssetBundle(temp, sanitizedName, bundleAssets, target, bundles, bundleOptions);
+                    BuildTempAssetBundle(temp, sanitisedName, bundlePaths, target, bundles, bundleOptions);
             }
 
             using var file = File.Create(filePath);
@@ -109,7 +115,7 @@ public static class WriteXPAB
             using var writer = new XPABWriter(stream, true);
 
             writer.Write(Encoding.ASCII.GetBytes(Constants.Header));
-            writer.Write(sanitizedName);
+            writer.Write(sanitisedName);
 
             if (hasBundles)
             {
@@ -126,10 +132,8 @@ public static class WriteXPAB
                 writer.WritePacked(0u);
             }
 
-            writer.WritePackedEnum(config.compressionMethod);
-
-            writer.WritePackedEnum(config.audioSettings.bitDepth);
-            writer.WritePackedEnum(config.audioSettings.compressionMethod);
+            foreach (var settings in config.GetAllSettings())
+                settings.WriteTo(writer);
 
             // TODO: String Pool, Assets and Master TOC
 
